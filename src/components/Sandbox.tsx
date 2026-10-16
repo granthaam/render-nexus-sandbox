@@ -337,7 +337,7 @@ export default function Sandbox() {
       for (let i = 0; i < N; i++) {
         const j = (Math.random() - 0.5) * st.hyperVib * 2;
         gp.array[i * 3] = bPos[i * 3] + j; gp.array[i * 3 + 1] = bPos[i * 3 + 1] + j; gp.array[i * 3 + 2] = bPos[i * 3 + 2] + j;
-        if (false) {
+        if ((i + Math.floor(t * 60)) % 30 === 0) {
           const pal = Math.random() < st.psi ? nxt.palette : cur.palette;
           const h = pal[pick[i] > 0.66 ? 0 : pick[i] > 0.33 ? 1 : 2];
           tmp.setHSL(h, 1, 0.65);
