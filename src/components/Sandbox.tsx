@@ -92,10 +92,25 @@ export default function Sandbox() {
     const el = mount.current!;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
-    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.0005, 4000);
-    // Close framing: globe + tesseract fill the view, beam rising above
-    const portrait = el.clientHeight > el.clientWidth;
-    camera.position.set(0, 4, portrait ? 46 : 34);
+    // Mobile-first viewport: real visible size, device class, capped pixel ratio
+    const VP = { w: 1, h: 1, kind: "desktop" as "desktop" | "tablet" | "phone", orientation: "landscape", maxDpr: 2 };
+    const readVP = () => {
+      const vv = window.visualViewport;
+      VP.w = Math.max(1, el.clientWidth || vv?.width || window.innerWidth);
+      VP.h = Math.max(1, el.clientHeight || vv?.height || window.innerHeight);
+      const minSide = Math.min(VP.w, VP.h);
+      VP.kind = minSide >= 1024 ? "desktop" : minSide >= 600 ? "tablet" : "phone";
+      VP.orientation = VP.h > VP.w ? "portrait" : "landscape";
+    };
+    readVP();
+    const camera = new THREE.PerspectiveCamera(55, VP.w / VP.h, 0.0005, 4000);
+    // Fit the globe+frame (radius ~13) inside the narrower axis with a small margin
+    const frameDist = () => {
+      const R = 13, tanH = Math.tan((camera.fov * Math.PI) / 360);
+      const rPx = Math.min(Math.sqrt((0.55 * VP.w * VP.h) / Math.PI), Math.min(VP.w, VP.h) * 0.48);
+      return Math.max(24, (R * (VP.h / 2)) / (tanH * rPx));
+    };
+    camera.position.set(0, 4, frameDist());
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 2, alpha: true, powerPreference: "high-performance", failIfMajorPerformanceCaveat: false });
@@ -106,8 +121,16 @@ export default function Sandbox() {
     }
     renderer.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); if (!disposed) setGlError(true); });
     let disposed = false;
-    renderer.setSize(el.clientWidth, el.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const refreshViewport = () => {
+      readVP();
+      const cap = VP.kind === "phone" ? Math.min(VP.maxDpr, 1.5) : VP.maxDpr;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
+      renderer.setSize(VP.w, VP.h);
+      camera.aspect = VP.w / VP.h;
+      camera.updateProjectionMatrix();
+    };
+    refreshViewport();
+    renderer.domElement.style.touchAction = "none";
     el.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -313,9 +336,32 @@ export default function Sandbox() {
     const cA = new THREE.Color(), cB = new THREE.Color(), tmp = new THREE.Color();
     const clock = new THREE.Clock();
     let t = 0, raf = 0, lastBeat = 0;
+    // Perf auto-tuner: steps quality down on slow devices, slowly back up when smooth
+    const TIERS = [
+      { stride: 1, dpr: 2, skip: 1 }, { stride: 2, dpr: 1.5, skip: 1 },
+      { stride: 3, dpr: 1, skip: 1 }, { stride: 5, dpr: 1, skip: 2 },
+    ];
+    const PERF = { tier: VP.kind === "desktop" ? 0 : 1, frames: 0, start: performance.now(), slow: 0, stride: 1, skip: 1, tick: 0 };
+    const applyTier = (i: number) => {
+      PERF.tier = i; PERF.stride = TIERS[i].stride; PERF.skip = TIERS[i].skip;
+      VP.maxDpr = TIERS[i].dpr; refreshViewport();
+    };
+    applyTier(PERF.tier);
+    const tickPerf = (nowMs: number) => {
+      PERF.frames++;
+      const el2 = nowMs - PERF.start;
+      if (el2 < 2000) return;
+      const fps = (PERF.frames * 1000) / el2; PERF.frames = 0; PERF.start = nowMs;
+      if (fps < 40) { if (++PERF.slow >= 2 && PERF.tier < 3) { applyTier(PERF.tier + 1); PERF.slow = 0; } }
+      else if (fps > 55) { PERF.slow = 0; if (PERF.tier > 0 && Math.random() < 0.15) applyTier(PERF.tier - 1); }
+      else PERF.slow = 0;
+    };
     const animate = () => {
       raf = requestAnimationFrame(animate);
-      const st = state.current, dt = clock.getDelta();
+      tickPerf(performance.now());
+      PERF.tick++;
+      if (PERF.skip > 1 && PERF.tick % PERF.skip !== 0) return;
+      const st = state.current, dt = Math.min(clock.getDelta(), 0.1);
       t += dt * st.timeSpeed;
       const cur = ELEMENTS[st.element];
       const nxt = ELEMENTS[ORDER[(ORDER.indexOf(st.element) + 1) % ORDER.length]];
@@ -341,7 +387,7 @@ export default function Sandbox() {
       globeMat.visible = camDist > 3; // membrane fades out of the way deep inside
 
       const gp = gGeo.attributes.position as THREE.BufferAttribute, gc = gGeo.attributes.color as THREE.BufferAttribute;
-      for (let i = 0; i < N; i++) {
+      for (let i = PERF.tick % PERF.stride; i < N; i += PERF.stride) {
         const j = (Math.random() - 0.5) * st.hyperVib * 2;
         gp.array[i * 3] = bPos[i * 3] + j; gp.array[i * 3 + 1] = bPos[i * 3 + 1] + j; gp.array[i * 3 + 2] = bPos[i * 3 + 2] + j;
         if ((i + Math.floor(t * 60)) % 30 === 0) {
@@ -391,15 +437,41 @@ export default function Sandbox() {
     for (let i = 0; i < N; i++) { tmp.setHSL(ELEMENTS.water.palette[i % 3], 1, 0.65); col.set([tmp.r, tmp.g, tmp.b], i * 3); }
     animate();
 
+    // Debounced, visualViewport-aware resize: URL-bar slides don't jitter; rotation re-frames
+    let rzTimer: ReturnType<typeof setTimeout> | undefined;
+    let lastOri = VP.orientation;
     const onResize = () => {
-      camera.aspect = el.clientWidth / el.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(el.clientWidth, el.clientHeight);
+      clearTimeout(rzTimer);
+      rzTimer = setTimeout(() => {
+        refreshViewport();
+        if (VP.orientation !== lastOri) {
+          lastOri = VP.orientation;
+          const d = camera.position.distanceTo(controls.target);
+          if (d > 20) { const fit = frameDist(); camera.position.sub(controls.target).setLength(fit).add(controls.target); }
+        }
+      }, 180);
     };
-    window.addEventListener("resize", onResize);
+    const onOrient = () => setTimeout(onResize, 300);
+    window.addEventListener("resize", onResize, { passive: true });
+    window.addEventListener("orientationchange", onOrient, { passive: true });
+    window.visualViewport?.addEventListener("resize", onResize, { passive: true });
+    // Ghost-tap suppression after pinch
+    let suppressTap = false;
+    const onTs = (e: TouchEvent) => { if (e.touches.length >= 2) suppressTap = true; };
+    const onTe = (e: TouchEvent) => { if (suppressTap && e.touches.length === 0) setTimeout(() => { suppressTap = false; }, 50); };
+    const onClick = (e: MouseEvent) => { if (suppressTap) { e.preventDefault(); e.stopPropagation(); } };
+    window.addEventListener("touchstart", onTs, { passive: true });
+    window.addEventListener("touchend", onTe, { passive: true });
+    window.addEventListener("click", onClick, true);
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(rzTimer);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onOrient);
+      window.visualViewport?.removeEventListener("resize", onResize);
+      window.removeEventListener("touchstart", onTs);
+      window.removeEventListener("touchend", onTe);
+      window.removeEventListener("click", onClick, true);
       controls.dispose();
       renderer.dispose();
       disposed = true;
