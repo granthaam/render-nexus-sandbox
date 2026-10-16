@@ -166,6 +166,8 @@
   .sandbox-chip[data-active="true"] { background: var(--foreground); color: var(--background); box-shadow: 0 0 20px var(--glow); }
   .sandbox-toggle { position: absolute; top: 1rem; right: 1rem; z-index: 20; padding: .5rem 1rem; border-radius: 9999px; font-size: .75rem; font-weight: 700;
     letter-spacing: .1em; text-transform: uppercase; background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(20px); }
+  .sandbox-hud { position: absolute; left: 1rem; top: 4rem; z-index: 10; max-width: 60%; padding: .6rem .9rem; border-radius: 14px; background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(16px); }
+  .sandbox-mute { right: auto; left: auto; right: 7.5rem; }
   .glass-panel { position: absolute; z-index: 15; top: 4rem; right: 1rem; width: 300px; max-height: calc(100vh - 9rem); overflow-y: auto; padding: 1.25rem;
     border-radius: 20px; background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(20px);
     transition: transform .3s ease, opacity .3s; transform: translateX(120%); opacity: 0; }
