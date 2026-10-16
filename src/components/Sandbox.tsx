@@ -17,7 +17,7 @@ export const ELEMENTS: Record<
 };
 export const ORDER: ElementKey[] = ["water", "earth", "plasma", "air", "fire"];
 
-const DEFAULTS = { timeSpeed: 1, tesseractSpeed: 1, hyperVib: 0, multiEcho: 1, waveAmp: 6, poolY: -15, emanationHue: 200, beamIntensity: 1.5, psi: 0, bpm: 55, pitch5d: 0 };
+const DEFAULTS = { timeSpeed: 1, tesseractSpeed: 1, hyperVib: 0, multiEcho: 1, waveAmp: 6, poolY: -15, emanationHue: 200, beamIntensity: 1.5, psi: 0, bpm: 55, pitch5d: 0, density: 1, master: 0.8, droneVol: 0.7, harmVol: 0.5, heartVol: 0.8 };
 type S = typeof DEFAULTS;
 
 const SLIDERS: { group: string; items: { k: keyof S; label: string; min: number; max: number; step: number; suffix?: string }[] }[] = [
@@ -37,6 +37,13 @@ const SLIDERS: { group: string; items: { k: keyof S; label: string; min: number;
   { group: "♪ Resonance", items: [
     { k: "bpm", label: "Heartbeat BPM", min: 30, max: 120, step: 1 },
     { k: "pitch5d", label: "Harmonic Pitch", min: -12, max: 12, step: 1 } ] },
+  { group: "🔊 Sound Mixer", items: [
+    { k: "master", label: "Master Volume", min: 0, max: 1, step: 0.01 },
+    { k: "droneVol", label: "Void Drone", min: 0, max: 1, step: 0.01 },
+    { k: "harmVol", label: "5D Harmonic", min: 0, max: 1, step: 0.01 },
+    { k: "heartVol", label: "Heartbeat", min: 0, max: 1, step: 0.01 } ] },
+  { group: "🧠 Neural Cosmos", items: [
+    { k: "density", label: "Synapse Glow", min: 0, max: 3, step: 0.05 } ] },
 ];
 
 export default function Sandbox() {
@@ -46,6 +53,8 @@ export default function Sandbox() {
   const [element, setElement] = useState<ElementKey>("water");
   const [entered, setEntered] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const toggleMute = () => setMuted((m) => { const n = !m; const a = audio.current; if (a) a.master.gain.rampTo(n ? 0 : state.current.master, 0.3); return n; });
   const audio = useRef<any>(null);
 
   const set = (k: keyof S, v: number) => {
@@ -53,6 +62,8 @@ export default function Sandbox() {
     setUi((u) => ({ ...u, [k]: v }));
     const a = audio.current;
     if (!a) return;
+    const gainKey = { master: "master", droneVol: "drone", harmVol: "harmG", heartVol: "heartG" }[k];
+    if (gainKey && !(k === "master" && muted)) a[gainKey].gain.rampTo(v, 0.2);
     if (k === "bpm") a.Tone.Transport.bpm.rampTo(v, 1);
     if (k === "pitch5d") a.harm.frequency.rampTo(a.Tone.Frequency("C5").transpose(v).toFrequency(), 0.5);
   };
@@ -78,8 +89,8 @@ export default function Sandbox() {
   useEffect(() => {
     const el = mount.current!;
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x050510, 0.008);
-    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.1, 1000);
+    scene.fog = new THREE.FogExp2(0x12050c, 0.0012);
+    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.005, 4000);
     camera.position.set(0, 30, el.clientWidth < 600 ? 120 : 90);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(el.clientWidth, el.clientHeight);
@@ -87,9 +98,9 @@ export default function Sandbox() {
     el.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.maxDistance = 160;
-    controls.minDistance = 30;
-    controls.maxPolarAngle = Math.PI / 2 + 0.15;
+    controls.maxDistance = 900;
+    controls.minDistance = 0.05;
+    controls.zoomSpeed = 1.6;
 
     const waveGeo = new THREE.PlaneGeometry(400, 400, 120, 120);
     const base = new Float32Array(waveGeo.attributes.position.array);
@@ -116,7 +127,33 @@ export default function Sandbox() {
     embryo.add(galaxy);
 
     const sacGeo = new THREE.SphereGeometry(12, 48, 48);
-    embryo.add(new THREE.Mesh(sacGeo, new THREE.MeshPhysicalMaterial({ transmission: 1, transparent: true, roughness: 0.1, ior: 1.8, thickness: 1, emissive: 0x220044, emissiveIntensity: 0.2 })));
+    const NOISE = `
+      vec3 hash3(vec3 p){ p=vec3(dot(p,vec3(127.1,311.7,74.7)),dot(p,vec3(269.5,183.3,246.1)),dot(p,vec3(113.5,271.9,124.6))); return -1.0+2.0*fract(sin(p)*43758.5453); }
+      float noise(vec3 p){ vec3 i=floor(p), f=fract(p); vec3 u=f*f*(3.0-2.0*f);
+        return mix(mix(mix(dot(hash3(i),f),dot(hash3(i+vec3(1,0,0)),f-vec3(1,0,0)),u.x),mix(dot(hash3(i+vec3(0,1,0)),f-vec3(0,1,0)),dot(hash3(i+vec3(1,1,0)),f-vec3(1,1,0)),u.x),u.y),
+                   mix(mix(dot(hash3(i+vec3(0,0,1)),f-vec3(0,0,1)),dot(hash3(i+vec3(1,0,1)),f-vec3(1,0,1)),u.x),mix(dot(hash3(i+vec3(0,1,1)),f-vec3(0,1,1)),dot(hash3(i+vec3(1,1,1)),f-vec3(1,1,1)),u.x),u.y),u.z); }
+      float fbm(vec3 p){ float v=0.0,a=0.5; for(int i=0;i<6;i++){ v+=a*noise(p); p*=2.03; a*=0.5; } return v; }
+      vec3 spectrum(float x){ return clamp(vec3(1.5-abs(4.0*x-3.0), 1.5-abs(4.0*x-2.0), 1.5-abs(4.0*x-1.0)),0.0,1.0); }
+      vec3 cmb(float x){ x=clamp(x,0.0,1.0);
+        vec3 c=mix(vec3(0.02,0.1,0.6),vec3(0.2,0.6,1.0),smoothstep(0.0,0.3,x));
+        c=mix(c,vec3(0.75,0.95,0.9),smoothstep(0.3,0.5,x)); c=mix(c,vec3(1.0,0.8,0.3),smoothstep(0.5,0.7,x));
+        return mix(c,vec3(0.85,0.2,0.05),smoothstep(0.7,1.0,x)); }`;
+    const vsPos = `varying vec3 vP; varying vec3 vN; varying vec3 vV; void main(){ vP=position; vN=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vV=-mv.xyz; gl_Position=projectionMatrix*mv; }`;
+    const globeMat = new THREE.ShaderMaterial({
+      uniforms: { time: { value: 0 }, hue: { value: 0 } },
+      vertexShader: vsPos,
+      fragmentShader: NOISE + `varying vec3 vP; varying vec3 vN; varying vec3 vV; uniform float time, hue;
+        void main(){ vec3 p=normalize(vP);
+          float n=fbm(p*6.0+time*0.05)*0.6+fbm(p*28.0-time*0.1)*0.4;
+          vec3 c=cmb(n*1.6+0.5);
+          vec3 spec=spectrum(fract(n*2.0+hue+time*0.02));
+          c=mix(c,spec,0.25);
+          float rim=pow(1.0-abs(dot(normalize(vN),normalize(vV))),2.0);
+          gl_FragColor=vec4(c*1.2+spec*rim*0.8, 0.55+rim*0.4); }`,
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    });
+    const globe = new THREE.Mesh(sacGeo, globeMat);
+    embryo.add(globe);
     const echoMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending });
     const echo = new THREE.Mesh(sacGeo, echoMat);
     embryo.add(echo);
@@ -149,6 +186,116 @@ export default function Sandbox() {
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
     const core = new THREE.PointLight(0xffffff, 5, 200);
     embryo.add(core);
+
+    // ===== Brain cortex enclosure (fills all empty space) =====
+    const cortexMat = new THREE.ShaderMaterial({
+      uniforms: { time: { value: 0 }, hue: { value: 0 }, glow: { value: 1 } },
+      vertexShader: vsPos,
+      fragmentShader: NOISE + `varying vec3 vP; uniform float time, hue, glow;
+        void main(){ vec3 p=normalize(vP);
+          float ridge=1.0-abs(fbm(p*5.0+vec3(0.0,time*0.01,0.0)));
+          ridge=pow(ridge,6.0);
+          float fold=1.0-abs(fbm(p*14.0+ridge));
+          fold=pow(fold,8.0);
+          float veins=pow(1.0-abs(noise(p*40.0+time*0.05)),20.0);
+          vec3 tissue=mix(vec3(0.22,0.04,0.1),vec3(0.75,0.3,0.45),ridge);
+          vec3 spec=spectrum(fract(ridge*0.7+fold*0.3+hue+time*0.015));
+          vec3 c=tissue*0.7+spec*fold*0.9*glow+vec3(1.0,0.85,0.95)*veins*glow;
+          gl_FragColor=vec4(c,1.0); }`,
+      side: THREE.BackSide, depthWrite: false, fog: false,
+    });
+    const cortex = new THREE.Mesh(new THREE.SphereGeometry(1200, 96, 96), cortexMat);
+    scene.add(cortex);
+    // inner gyri layers — nested translucent folds for depth
+    const gyri: THREE.Mesh[] = [];
+    [180, 360, 620].forEach((rad, i) => {
+      const m = new THREE.ShaderMaterial({
+        uniforms: { time: { value: 0 }, hue: { value: i * 0.2 }, glow: { value: 1 } },
+        vertexShader: vsPos,
+        fragmentShader: NOISE + `varying vec3 vP; uniform float time, hue, glow;
+          void main(){ vec3 p=normalize(vP); float f=pow(1.0-abs(fbm(p*${(8 + i * 4).toFixed(1)}+time*0.02)),10.0);
+            vec3 c=spectrum(fract(f+hue+time*0.01)); gl_FragColor=vec4(c*glow, f*0.35); }`,
+        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      });
+      const g = new THREE.Mesh(new THREE.SphereGeometry(rad, 64, 64), m);
+      gyri.push(g); scene.add(g);
+    });
+
+    // ===== Neural network: neurons + dendrites across all scales =====
+    const NEU = 1400, neurons: THREE.Vector3[] = [];
+    for (let i = 0; i < NEU; i++) {
+      const r = 14 * Math.exp(Math.random() * Math.log(80)); // 14 → 1100, log-distributed
+      const v = new THREE.Vector3().randomDirection().multiplyScalar(r);
+      neurons.push(v);
+    }
+    const dPos: number[] = [], dCol: number[] = [], dPh: number[] = [];
+    const c1 = new THREE.Color();
+    neurons.forEach((a, i) => {
+      for (let k = 0; k < 4; k++) {
+        // connect to a nearby neuron with a curved dendrite (3 segments)
+        let best = a, bd = Infinity;
+        for (let t2 = 0; t2 < 24; t2++) { const b = neurons[(Math.random() * NEU) | 0]; const d = a.distanceTo(b); if (b !== a && d < bd) { bd = d; best = b; } }
+        const mid = a.clone().lerp(best, 0.5).add(new THREE.Vector3().randomDirection().multiplyScalar(bd * 0.25));
+        const pts = new THREE.QuadraticBezierCurve3(a, mid, best).getPoints(6);
+        const hue = (a.length() / 1100 + Math.random() * 0.2) % 1;
+        for (let s2 = 0; s2 < pts.length - 1; s2++) {
+          dPos.push(pts[s2].x, pts[s2].y, pts[s2].z, pts[s2 + 1].x, pts[s2 + 1].y, pts[s2 + 1].z);
+          c1.setHSL(hue + s2 * 0.02, 1, 0.6);
+          dCol.push(c1.r, c1.g, c1.b, c1.r, c1.g, c1.b);
+          const ph = Math.random() * 6.28 + i;
+          dPh.push(ph + s2 * 0.4, ph + (s2 + 1) * 0.4);
+        }
+      }
+    });
+    const dGeo = new THREE.BufferGeometry();
+    dGeo.setAttribute("position", new THREE.Float32BufferAttribute(dPos, 3));
+    dGeo.setAttribute("color", new THREE.Float32BufferAttribute(dCol, 3));
+    dGeo.setAttribute("phase", new THREE.Float32BufferAttribute(dPh, 1));
+    const dendMat = new THREE.ShaderMaterial({
+      uniforms: { time: { value: 0 }, glow: { value: 1 } },
+      vertexShader: `attribute float phase; attribute vec3 color; varying vec3 vC; varying float vPh; void main(){ vC=color; vPh=phase; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      fragmentShader: `varying vec3 vC; varying float vPh; uniform float time, glow; void main(){ float pulse=pow(0.5+0.5*sin(vPh-time*4.0),8.0); gl_FragColor=vec4(vC*(0.35+pulse*1.6)*glow, 0.35+pulse*0.6); }`,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    scene.add(new THREE.LineSegments(dGeo, dendMat));
+    // neuron somas
+    const somaGeo = new THREE.BufferGeometry().setFromPoints(neurons);
+    const somaCol = new Float32Array(NEU * 3);
+    neurons.forEach((n, i) => { c1.setHSL((n.length() / 1100) % 1, 1, 0.7); somaCol.set([c1.r, c1.g, c1.b], i * 3); });
+    somaGeo.setAttribute("color", new THREE.BufferAttribute(somaCol, 3));
+    const somaMat = new THREE.PointsMaterial({ size: 3, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+    scene.add(new THREE.Points(somaGeo, somaMat));
+
+    // ===== Multi-scale dust: cosmic → microscopic =====
+    const makeDust = (count: number, rMin: number, rMax: number, size: number) => {
+      const g = new THREE.BufferGeometry(), p = new Float32Array(count * 3), c = new Float32Array(count * 3);
+      const v = new THREE.Vector3();
+      for (let i = 0; i < count; i++) {
+        const r = rMin * Math.exp(Math.random() * Math.log(rMax / rMin));
+        v.randomDirection().multiplyScalar(r); p.set([v.x, v.y, v.z], i * 3);
+        c1.setHSL(Math.random(), 1, 0.55 + Math.random() * 0.3); c.set([c1.r, c1.g, c1.b], i * 3);
+      }
+      g.setAttribute("position", new THREE.BufferAttribute(p, 3));
+      g.setAttribute("color", new THREE.BufferAttribute(c, 3));
+      return new THREE.Points(g, new THREE.PointsMaterial({ size, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.85, depthWrite: false }));
+    };
+    const cosmicDust = makeDust(40000, 15, 1100, 0.9);
+    scene.add(cosmicDust);
+    // microscopic interior of the globe: quantum foam that resolves when zoomed in
+    const micro = new THREE.Group();
+    embryo.add(micro);
+    micro.add(makeDust(30000, 0.02, 11, 0.03));
+    micro.add(makeDust(15000, 0.002, 1.5, 0.004));
+    // micro neural lattice inside the core
+    const mPos: number[] = [];
+    for (let i = 0; i < 1500; i++) {
+      const a = new THREE.Vector3().randomDirection().multiplyScalar(0.05 * Math.exp(Math.random() * Math.log(200)));
+      const b = a.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(a.length() * 0.3));
+      mPos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    }
+    const mGeo = new THREE.BufferGeometry();
+    mGeo.setAttribute("position", new THREE.Float32BufferAttribute(mPos, 3));
+    micro.add(new THREE.LineSegments(mGeo, new THREE.LineBasicMaterial({ color: 0xffccee, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })));
 
     const cA = new THREE.Color(), cB = new THREE.Color(), tmp = new THREE.Color();
     const clock = new THREE.Clock();
@@ -190,7 +337,7 @@ export default function Sandbox() {
       for (let i = 0; i < N; i++) {
         const j = (Math.random() - 0.5) * st.hyperVib * 2;
         gp.array[i * 3] = bPos[i * 3] + j; gp.array[i * 3 + 1] = bPos[i * 3 + 1] + j; gp.array[i * 3 + 2] = bPos[i * 3 + 2] + j;
-        if ((i + Math.floor(t * 60)) % 30 === 0) {
+        if (false) {
           const pal = Math.random() < st.psi ? nxt.palette : cur.palette;
           const h = pal[pick[i] > 0.66 ? 0 : pick[i] > 0.33 ? 1 : 2];
           tmp.setHSL(h, 1, 0.65);
@@ -211,6 +358,18 @@ export default function Sandbox() {
       beamMat.uniforms.time.value = t;
       beamMat.uniforms.hueShift.value = st.emanationHue / 360;
       beamMat.uniforms.intensity.value = st.beamIntensity + st.pulse * 0.5;
+
+      const hueN = st.emanationHue / 360;
+      globeMat.uniforms.time.value = t; globeMat.uniforms.hue.value = hueN;
+      cortexMat.uniforms.time.value = t; cortexMat.uniforms.hue.value = hueN; cortexMat.uniforms.glow.value = st.density;
+      gyri.forEach((g, i) => { g.material.uniforms.time.value = t; g.material.uniforms.glow.value = st.density; g.rotation.y = t * 0.01 * (i + 1); });
+      dendMat.uniforms.time.value = t; dendMat.uniforms.glow.value = st.density;
+      somaMat.size = 2 + st.pulse * 3;
+      cosmicDust.rotation.y = t * 0.005;
+      micro.rotation.x = t * 0.1; micro.rotation.y = -t * 0.07;
+      // keep micro detail readable: scale point size with zoom distance
+      const dist = camera.position.length();
+      controls.zoomSpeed = dist < 15 ? 0.6 : 1.6;
 
       controls.update();
       renderer.render(scene, camera);
@@ -242,18 +401,22 @@ export default function Sandbox() {
       const Tone = await import("tone");
       await Tone.start();
       Tone.Transport.bpm.value = state.current.bpm;
-      const lp = new Tone.Filter(400, "lowpass").toDestination();
+      const master = new Tone.Gain(muted ? 0 : state.current.master).toDestination();
+      const droneG = new Tone.Gain(state.current.droneVol).connect(master);
+      const harmG = new Tone.Gain(state.current.harmVol).connect(master);
+      const heartG = new Tone.Gain(state.current.heartVol).connect(master);
+      const lp = new Tone.Filter(400, "lowpass").connect(droneG);
       const rev = new Tone.Reverb(8).connect(lp);
       const drone = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 4, decay: 2, sustain: 1, release: 8 } }).connect(rev);
       drone.triggerAttack(["C2", "G2", "C3"]);
-      const hp = new Tone.Filter(2000, "highpass").toDestination();
+      const hp = new Tone.Filter(2000, "highpass").connect(harmG);
       const harm = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 2, decay: 1, sustain: 0.5, release: 4 } }).connect(new Tone.Reverb(4).connect(hp));
       harm.volume.value = -10;
       harm.triggerAttack(Tone.Frequency("C5").transpose(state.current.pitch5d).toNote());
-      const heart = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 2, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1 } }).toDestination();
+      const heart = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 2, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1 } }).connect(heartG);
       Tone.Transport.scheduleRepeat((time) => { try { heart.triggerAttackRelease("C1", "16n", time + 0.01); } catch {} }, "4n");
       Tone.Transport.start();
-      audio.current = { Tone, harm, dispose: () => { drone.dispose(); harm.dispose(); heart.dispose(); } };
+      audio.current = { Tone, harm, master, drone: droneG, harmG, heartG, dispose: () => { drone.dispose(); harm.dispose(); heart.dispose(); } };
     } catch (e) { console.warn("audio unavailable", e); }
   };
 
@@ -280,6 +443,9 @@ export default function Sandbox() {
             ))}
           </nav>
 
+          <button onClick={toggleMute} className="sandbox-toggle sandbox-mute" aria-label={muted ? "Unmute sound" : "Mute sound"}>
+            {muted ? "🔇 Muted" : "🔊 Sound"}
+          </button>
           <button onClick={() => setPanelOpen((o) => !o)} className="sandbox-toggle">
             {panelOpen ? "Close" : "Controls"}
           </button>
@@ -308,7 +474,7 @@ export default function Sandbox() {
           Navigate the nested Tesseract, bend the Wavepool of Time, and shift between the five elemental pillars — Water, Earth, Plasma, Air and Fire.
         </p>
         <button onClick={enter} className="enter-btn">ENTER THE FIRMAMENT</button>
-        <p className="sandbox-eyebrow mt-6">Drag to rotate · Pinch / scroll to zoom · Sound on</p>
+        <p className="sandbox-eyebrow mt-6">Drag to rotate · Zoom from cosmos to microscopic · Sound on</p>
       </div>
     </div>
   );
