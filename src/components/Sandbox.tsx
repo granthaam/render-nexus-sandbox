@@ -54,6 +54,7 @@ export default function Sandbox() {
   const [entered, setEntered] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [glError, setGlError] = useState(false);
   const toggleMute = () => setMuted((m) => { const n = !m; const a = audio.current; if (a) a.master.gain.rampTo(n ? 0 : state.current.master, 0.3); return n; });
   const audio = useRef<any>(null);
 
@@ -92,7 +93,15 @@ export default function Sandbox() {
     scene.fog = new THREE.FogExp2(0x12050c, 0.0012);
     const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.005, 4000);
     camera.position.set(0, 30, el.clientWidth < 600 ? 120 : 90);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 2, alpha: true, powerPreference: "high-performance", failIfMajorPerformanceCaveat: false });
+    } catch (err) {
+      console.warn("WebGL unavailable", err);
+      setGlError(true);
+      return;
+    }
+    renderer.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); setGlError(true); });
     renderer.setSize(el.clientWidth, el.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     el.appendChild(renderer.domElement);
@@ -394,6 +403,7 @@ export default function Sandbox() {
       window.removeEventListener("resize", onResize);
       controls.dispose();
       renderer.dispose();
+      renderer.forceContextLoss(); // free the GPU context so remounts never exhaust the browser limit
       el.removeChild(renderer.domElement);
     };
   }, []);
@@ -431,6 +441,13 @@ export default function Sandbox() {
   return (
     <div className="sandbox-root">
       <div ref={mount} className="absolute inset-0" />
+      {glError && (
+        <div className="intro-overlay z-[60]">
+          <h2 className="sandbox-title mb-2">3D view paused</h2>
+          <p className="mb-6 max-w-sm px-6 text-center text-sm text-muted-foreground">Your browser ran out of graphics memory. Close other tabs, then reload.</p>
+          <button onClick={() => window.location.reload()} className="enter-btn">RELOAD</button>
+        </div>
+      )}
 
       {entered && (
         <>
