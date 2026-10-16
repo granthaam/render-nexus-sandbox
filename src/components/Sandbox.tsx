@@ -328,7 +328,7 @@ export default function Sandbox() {
       // element tint + wave physics fed to every inner structure
       cA.setHex(cur.wave); cB.setHex(nxt.wave); tmp.copy(cA).lerp(cB, st.psi);
       const camDist = camera.position.distanceTo(controls.target);
-      const uniFade = THREE.MathUtils.clamp((camDist - 6) / 20, 0.08, 1); // neural cosmos recedes as you descend
+      const uniFade = THREE.MathUtils.clamp((camDist - 8) / 20, 0, 1); // neural cosmos recedes as you descend
       waveMats.forEach(({ mat, ampScale }) => {
         mat.uniforms.wt.value = t; mat.uniforms.wamp.value = st.waveAmp * ampScale;
         mat.uniforms.wtint.value.lerp(tmp, 0.05);
@@ -337,7 +337,8 @@ export default function Sandbox() {
       const ps = 1 + st.pulse * 0.2;
       embryo.scale.setScalar(ps);
       echo.scale.setScalar(st.multiEcho);
-      echoMat.opacity = 0.2 / st.multiEcho;
+      echoMat.opacity = (0.2 / st.multiEcho) * uniFade;
+      globeMat.visible = camDist > 3; // membrane fades out of the way deep inside
 
       const gp = gGeo.attributes.position as THREE.BufferAttribute, gc = gGeo.attributes.color as THREE.BufferAttribute;
       for (let i = 0; i < N; i++) {
