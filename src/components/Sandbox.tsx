@@ -17,7 +17,7 @@ export const ELEMENTS: Record<
 };
 export const ORDER: ElementKey[] = ["water", "earth", "plasma", "air", "fire"];
 
-const DEFAULTS = { timeSpeed: 1, tesseractSpeed: 1, hyperVib: 0, multiEcho: 1, waveAmp: 6, poolY: -15, emanationHue: 200, beamIntensity: 1.5, psi: 0, bpm: 55, pitch5d: 0, density: 1, master: 0.8, droneVol: 0.7, harmVol: 0.5, heartVol: 0.8 };
+const DEFAULTS = { timeSpeed: 1, tesseractSpeed: 1, hyperVib: 0, multiEcho: 1, waveAmp: 6, emanationHue: 200, beamIntensity: 1.5, psi: 0, bpm: 55, pitch5d: 0, density: 1, master: 0.8, droneVol: 0.7, harmVol: 0.5, heartVol: 0.8 };
 type S = typeof DEFAULTS;
 
 const SLIDERS: { group: string; items: { k: keyof S; label: string; min: number; max: number; step: number; suffix?: string }[] }[] = [
@@ -28,9 +28,8 @@ const SLIDERS: { group: string; items: { k: keyof S; label: string; min: number;
     { k: "hyperVib", label: "Hyper-Vibration", min: 0, max: 3, step: 0.1 },
     { k: "multiEcho", label: "Multiverse Echo", min: 1, max: 4, step: 0.1 },
     { k: "psi", label: "Superposition ψ", min: 0, max: 1, step: 0.01 } ] },
-  { group: "≈ Wavepool", items: [
-    { k: "waveAmp", label: "Wave Amplitude", min: 0, max: 20, step: 0.5 },
-    { k: "poolY", label: "Pool Elevation", min: -40, max: 0, step: 1 } ] },
+  { group: "≈ Inner Wave Function", items: [
+    { k: "waveAmp", label: "Wave Amplitude", min: 0, max: 20, step: 0.5 } ] },
   { group: "↧ Emanation", items: [
     { k: "emanationHue", label: "Spectrum Shift", min: 0, max: 360, step: 1, suffix: "°" },
     { k: "beamIntensity", label: "Beam Luminosity", min: 0, max: 3, step: 0.1 } ] },
@@ -90,7 +89,7 @@ export default function Sandbox() {
   useEffect(() => {
     const el = mount.current!;
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x12050c, 0.0012);
+    scene.background = new THREE.Color(0x000000);
     const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.005, 4000);
     camera.position.set(0, 30, el.clientWidth < 600 ? 120 : 90);
     let renderer: THREE.WebGLRenderer;
@@ -101,7 +100,8 @@ export default function Sandbox() {
       setGlError(true);
       return;
     }
-    renderer.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); setGlError(true); });
+    renderer.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); if (!disposed) setGlError(true); });
+    let disposed = false;
     renderer.setSize(el.clientWidth, el.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     el.appendChild(renderer.domElement);
@@ -110,15 +110,6 @@ export default function Sandbox() {
     controls.maxDistance = 900;
     controls.minDistance = 0.05;
     controls.zoomSpeed = 1.6;
-
-    const waveGeo = new THREE.PlaneGeometry(400, 400, 120, 120);
-    const base = new Float32Array(waveGeo.attributes.position.array);
-    const waveMat = new THREE.MeshStandardMaterial({ color: 0x00aaff, emissive: 0x002255, emissiveIntensity: 0.8, transparent: true, opacity: 0.8, roughness: 0.1, metalness: 0.9, side: THREE.DoubleSide });
-    const pool = new THREE.Mesh(waveGeo, waveMat);
-    pool.rotation.x = -Math.PI / 2;
-    scene.add(pool);
-    const gridMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending });
-    pool.add(new THREE.Mesh(waveGeo, gridMat));
 
     const dotCanvas = document.createElement("canvas"); dotCanvas.width = dotCanvas.height = 64;
     const dctx = dotCanvas.getContext("2d")!; const grd = dctx.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -163,7 +154,7 @@ export default function Sandbox() {
           vec3 spec=spectrum(fract(n*2.0+hue+time*0.02));
           c=mix(c,spec,0.25);
           float rim=pow(1.0-abs(dot(normalize(vN),normalize(vV))),2.0);
-          gl_FragColor=vec4(c*1.2+spec*rim*0.8, 0.55+rim*0.4); }`,
+          gl_FragColor=vec4(c*0.9+spec*rim*0.9, 0.12+rim*0.75); }`,
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
     });
     const globe = new THREE.Mesh(sacGeo, globeMat);
@@ -201,44 +192,43 @@ export default function Sandbox() {
     const core = new THREE.PointLight(0xffffff, 5, 200);
     embryo.add(core);
 
-    // ===== Brain cortex enclosure (fills all empty space) =====
-    const cortexMat = new THREE.ShaderMaterial({
-      uniforms: { time: { value: 0 }, hue: { value: 0 }, glow: { value: 1 } },
-      vertexShader: vsPos,
-      fragmentShader: NOISE + `varying vec3 vP; uniform float time, hue, glow;
-        void main(){ vec3 p=normalize(vP);
-          float ridge=1.0-abs(fbm(p*5.0+vec3(0.0,time*0.01,0.0)));
-          ridge=pow(ridge,6.0);
-          float fold=1.0-abs(fbm(p*14.0+ridge));
-          fold=pow(fold,8.0);
-          float veins=pow(1.0-abs(noise(p*40.0+time*0.05)),20.0);
-          vec3 tissue=mix(vec3(0.22,0.04,0.1),vec3(0.75,0.3,0.45),ridge);
-          vec3 spec=spectrum(fract(ridge*0.7+fold*0.3+hue+time*0.015));
-          vec3 c=tissue*0.6+spec*fold*0.55*glow+vec3(1.0,0.85,0.95)*veins*0.5*glow;
-          gl_FragColor=vec4(c,1.0); }`,
-      side: THREE.BackSide, depthWrite: false, fog: false,
+    // ===== Wave function: the old wavepool's interference law, now the physics of the inner universe =====
+    const WAVE = `uniform float wt, wamp, wfreq, wlim; uniform vec3 wtint;
+      vec3 wave(vec3 p){
+        float z1 = sin(p.x*wfreq + wt) * cos(p.z*wfreq + wt);
+        float z2 = sin(p.x*wfreq*0.33 - wt*1.5) * 0.5;
+        float z3 = sin(p.y*wfreq*0.7 + wt*0.8) * cos(p.x*wfreq*0.5 - wt) * 0.4;
+        p.y += (z1 + z2) * wamp;
+        p.xz += vec2(z3, -z3) * wamp * 0.5;
+        float L = length(p); if (L > wlim) p *= wlim / L;
+        return p; }`;
+    const waveUniforms = (freq: number, lim: number, ampScale: number) => ({
+      wt: { value: 0 }, wamp: { value: 0 }, wfreq: { value: freq }, wlim: { value: lim }, wtint: { value: new THREE.Color(0x00aaff) }, ampScale,
     });
-    const cortex = new THREE.Mesh(new THREE.SphereGeometry(1200, 96, 96), cortexMat);
-    scene.add(cortex);
-    // inner gyri layers — nested translucent folds for depth
-    const gyri: THREE.Mesh[] = [];
-    [180, 360, 620].forEach((rad, i) => {
-      const m = new THREE.ShaderMaterial({
-        uniforms: { time: { value: 0 }, hue: { value: i * 0.2 }, glow: { value: 1 } },
-        vertexShader: vsPos,
-        fragmentShader: NOISE + `varying vec3 vP; uniform float time, hue, glow;
-          void main(){ vec3 p=normalize(vP); float f=pow(1.0-abs(fbm(p*${(8 + i * 4).toFixed(1)}+time*0.02)),10.0);
-            vec3 c=spectrum(fract(f+hue+time*0.01)); gl_FragColor=vec4(c*glow*0.6, f*0.18); }`,
-        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    const waveMats: { mat: THREE.ShaderMaterial; ampScale: number }[] = [];
+    const pointsMat = (size: number, freq: number, lim: number, ampScale: number, opacity = 0.7) => {
+      const u = waveUniforms(freq, lim, ampScale);
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { ...u, map: { value: dot }, psize: { value: size }, op: { value: opacity }, glow: { value: 1 } },
+        vertexShader: WAVE + `attribute vec3 color; varying vec3 vC; uniform float psize;
+          void main(){ vC = mix(color, wtint, 0.3); vec4 mv = modelViewMatrix * vec4(wave(position), 1.0);
+            gl_PointSize = clamp(psize * 900.0 / -mv.z, 1.0, 24.0); gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: `uniform sampler2D map; uniform float op, glow; varying vec3 vC;
+          void main(){ float a = texture2D(map, gl_PointCoord).a; gl_FragColor = vec4(vC * glow, a * op); }`,
+        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
       });
-      const g = new THREE.Mesh(new THREE.SphereGeometry(rad, 64, 64), m);
-      gyri.push(g); scene.add(g);
-    });
+      waveMats.push({ mat, ampScale });
+      return mat;
+    };
+    // Macroverse lives inside the globe: 1100 local units mapped into an 11.5 radius
+    const universe = new THREE.Group();
+    universe.scale.setScalar(11.5 / 1100);
+    embryo.add(universe);
 
     // ===== Neural network: neurons + dendrites across all scales =====
     const NEU = 1400, neurons: THREE.Vector3[] = [];
     for (let i = 0; i < NEU; i++) {
-      const r = 14 * Math.exp(Math.random() * Math.log(80)); // 14 → 1100, log-distributed
+      const r = 1 * Math.exp(Math.random() * Math.log(1100)); // 1 → 1100, macro → micro
       const v = new THREE.Vector3().randomDirection().multiplyScalar(r);
       neurons.push(v);
     }
@@ -266,22 +256,23 @@ export default function Sandbox() {
     dGeo.setAttribute("color", new THREE.Float32BufferAttribute(dCol, 3));
     dGeo.setAttribute("phase", new THREE.Float32BufferAttribute(dPh, 1));
     const dendMat = new THREE.ShaderMaterial({
-      uniforms: { time: { value: 0 }, glow: { value: 1 } },
-      vertexShader: `attribute float phase; attribute vec3 color; varying vec3 vC; varying float vPh; void main(){ vC=color; vPh=phase; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      uniforms: { time: { value: 0 }, glow: { value: 1 }, ...waveUniforms(0.012, 1120, 6) },
+      vertexShader: WAVE + `attribute float phase; attribute vec3 color; varying vec3 vC; varying float vPh; void main(){ vC=mix(color, wtint, 0.25); vPh=phase; gl_Position=projectionMatrix*modelViewMatrix*vec4(wave(position),1.0); }`,
       fragmentShader: `varying vec3 vC; varying float vPh; uniform float time, glow; void main(){ float pulse=pow(0.5+0.5*sin(vPh-time*4.0),8.0); gl_FragColor=vec4(vC*(0.12+pulse*0.9)*glow, 0.12+pulse*0.5); }`,
       transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     });
-    scene.add(new THREE.LineSegments(dGeo, dendMat));
+    waveMats.push({ mat: dendMat, ampScale: 6 });
+    universe.add(new THREE.LineSegments(dGeo, dendMat));
     // neuron somas
     const somaGeo = new THREE.BufferGeometry().setFromPoints(neurons);
     const somaCol = new Float32Array(NEU * 3);
     neurons.forEach((n, i) => { c1.setHSL((n.length() / 1100) % 1, 1, 0.7); somaCol.set([c1.r, c1.g, c1.b], i * 3); });
     somaGeo.setAttribute("color", new THREE.BufferAttribute(somaCol, 3));
-    const somaMat = new THREE.PointsMaterial({ map: dot, size: 1.6, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
-    scene.add(new THREE.Points(somaGeo, somaMat));
+    const somaMat = pointsMat(0.06, 0.012, 1120, 6, 0.95);
+    universe.add(new THREE.Points(somaGeo, somaMat));
 
     // ===== Multi-scale dust: cosmic → microscopic =====
-    const makeDust = (count: number, rMin: number, rMax: number, size: number) => {
+    const makeDust = (count: number, rMin: number, rMax: number, size: number, freq = 0.012, lim = 1120, ampScale = 6) => {
       const g = new THREE.BufferGeometry(), p = new Float32Array(count * 3), c = new Float32Array(count * 3);
       const v = new THREE.Vector3();
       for (let i = 0; i < count; i++) {
@@ -291,15 +282,15 @@ export default function Sandbox() {
       }
       g.setAttribute("position", new THREE.BufferAttribute(p, 3));
       g.setAttribute("color", new THREE.BufferAttribute(c, 3));
-      return new THREE.Points(g, new THREE.PointsMaterial({ map: dot, size, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.6, depthWrite: false }));
+      return new THREE.Points(g, pointsMat(size, freq, lim, ampScale, 0.6));
     };
-    const cosmicDust = makeDust(40000, 15, 1100, 0.45);
-    scene.add(cosmicDust);
+    const cosmicDust = makeDust(45000, 1, 1100, 0.02);
+    universe.add(cosmicDust);
     // microscopic interior of the globe: quantum foam that resolves when zoomed in
     const micro = new THREE.Group();
     embryo.add(micro);
-    micro.add(makeDust(30000, 0.02, 11, 0.03));
-    micro.add(makeDust(15000, 0.002, 1.5, 0.004));
+    micro.add(makeDust(25000, 0.02, 1.2, 0.004, 1.2, 1.25, 0.05));
+    micro.add(makeDust(15000, 0.002, 0.15, 0.0008, 12, 0.16, 0.005));
     // micro neural lattice inside the core
     const mPos: number[] = [];
     for (let i = 0; i < 1500; i++) {
@@ -326,22 +317,13 @@ export default function Sandbox() {
       if (now - lastBeat > period) { lastBeat = now; st.pulse = 1; }
       st.pulse = Math.max(0, st.pulse - dt * 2.5);
 
-      // element colors blended with superposition ψ
-      cA.setHex(cur.wave); cB.setHex(nxt.wave);
-      waveMat.color.lerp(tmp.copy(cA).lerp(cB, st.psi), 0.05);
-      cA.setHex(cur.emissive); cB.setHex(nxt.emissive);
-      waveMat.emissive.lerp(tmp.copy(cA).lerp(cB, st.psi), 0.05);
-      gridMat.color.copy(waveMat.color).offsetHSL(0, 0, 0.2);
-
-      pool.position.y = st.poolY;
-      const wp = waveGeo.attributes.position;
-      for (let i = 0; i < wp.count; i++) {
-        const ox = base[i * 3], oy = base[i * 3 + 1];
-        wp.setZ(i, (Math.sin(ox * 0.03 + t) * Math.cos(oy * 0.03 + t) + Math.sin(ox * 0.01 - t * 1.5) * 0.5) * st.waveAmp);
-      }
-      wp.needsUpdate = true;
-      waveGeo.computeVertexNormals();
-
+      // element tint + wave physics fed to every inner structure
+      cA.setHex(cur.wave); cB.setHex(nxt.wave); tmp.copy(cA).lerp(cB, st.psi);
+      waveMats.forEach(({ mat, ampScale }) => {
+        mat.uniforms.wt.value = t; mat.uniforms.wamp.value = st.waveAmp * ampScale;
+        mat.uniforms.wtint.value.lerp(tmp, 0.05);
+        if (mat.uniforms.glow) mat.uniforms.glow.value = st.density;
+      });
       const ps = 1 + st.pulse * 0.2;
       embryo.scale.setScalar(ps);
       echo.scale.setScalar(st.multiEcho);
@@ -375,10 +357,8 @@ export default function Sandbox() {
 
       const hueN = st.emanationHue / 360;
       globeMat.uniforms.time.value = t; globeMat.uniforms.hue.value = hueN;
-      cortexMat.uniforms.time.value = t; cortexMat.uniforms.hue.value = hueN; cortexMat.uniforms.glow.value = st.density;
-      gyri.forEach((g, i) => { g.material.uniforms.time.value = t; g.material.uniforms.glow.value = st.density; g.rotation.y = t * 0.01 * (i + 1); });
       dendMat.uniforms.time.value = t; dendMat.uniforms.glow.value = st.density;
-      somaMat.size = 1.4 + st.pulse * 1.2;
+      somaMat.uniforms.psize.value = 0.05 + st.pulse * 0.04;
       cosmicDust.rotation.y = t * 0.005;
       micro.rotation.x = t * 0.1; micro.rotation.y = -t * 0.07;
       // keep micro detail readable: scale point size with zoom distance
@@ -403,6 +383,7 @@ export default function Sandbox() {
       window.removeEventListener("resize", onResize);
       controls.dispose();
       renderer.dispose();
+      disposed = true;
       renderer.forceContextLoss(); // free the GPU context so remounts never exhaust the browser limit
       el.removeChild(renderer.domElement);
     };
@@ -493,7 +474,7 @@ export default function Sandbox() {
         <p className="sandbox-eyebrow mb-3">Elemental systems online</p>
         <h1 className="rainbow-text mb-4 text-center text-5xl font-black tracking-tighter md:text-7xl">5D GESTATION</h1>
         <p className="mb-8 max-w-lg px-6 text-center text-sm leading-relaxed text-muted-foreground">
-          Navigate the nested Tesseract, bend the Wavepool of Time, and shift between the five elemental pillars — Water, Earth, Plasma, Air and Fire.
+          Navigate the nested Tesseract, travel from the macroverse to the microverse inside the wave-driven globe, and shift between the five elemental pillars — Water, Earth, Plasma, Air and Fire.
         </p>
         <button onClick={enter} className="enter-btn">ENTER THE FIRMAMENT</button>
         <p className="sandbox-eyebrow mt-6">Drag to rotate · Zoom from cosmos to microscopic · Sound on</p>
