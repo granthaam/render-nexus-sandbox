@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { buildPowersOfTen, STAGES, MIN_DIST, exponentAt } from "./powersOfTen";
 
 type ElementKey = "water" | "earth" | "plasma" | "air" | "fire";
 
@@ -56,6 +57,7 @@ export default function Sandbox() {
   const [glError, setGlError] = useState(false);
   const toggleMute = () => setMuted((m) => { const n = !m; const a = audio.current; if (a) a.master.gain.rampTo(n ? 0 : state.current.master, 0.3); return n; });
   const audio = useRef<any>(null);
+  const scaleRef = useRef<HTMLDivElement>(null);
 
   const set = (k: keyof S, v: number) => {
     state.current[k] = v;
@@ -90,7 +92,7 @@ export default function Sandbox() {
     const el = mount.current!;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
-    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.005, 4000);
+    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.0005, 4000);
     // Close framing: globe + tesseract fill the view, beam rising above
     const portrait = el.clientHeight > el.clientWidth;
     camera.position.set(0, 4, portrait ? 46 : 34);
@@ -109,9 +111,9 @@ export default function Sandbox() {
     el.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.target.set(0, 6, 0);
+    controls.target.set(0, 0, 0);
     controls.maxDistance = 900;
-    controls.minDistance = 0.05;
+    controls.minDistance = MIN_DIST;
     controls.zoomSpeed = 1.6;
 
     const dotCanvas = document.createElement("canvas"); dotCanvas.width = dotCanvas.height = 64;
@@ -292,6 +294,9 @@ export default function Sandbox() {
     // microscopic interior of the globe: quantum foam that resolves when zoomed in
     const micro = new THREE.Group();
     embryo.add(micro);
+    micro.visible = false; // superseded by the Powers of Ten descent
+    const pot = buildPowersOfTen(dot);
+    scene.add(pot.group);
     micro.add(makeDust(25000, 0.02, 1.2, 0.004, 1.2, 1.25, 0.05));
     micro.add(makeDust(15000, 0.002, 0.15, 0.0008, 12, 0.16, 0.005));
     // micro neural lattice inside the core
@@ -322,15 +327,18 @@ export default function Sandbox() {
 
       // element tint + wave physics fed to every inner structure
       cA.setHex(cur.wave); cB.setHex(nxt.wave); tmp.copy(cA).lerp(cB, st.psi);
+      const camDist = camera.position.distanceTo(controls.target);
+      const uniFade = THREE.MathUtils.clamp((camDist - 8) / 20, 0, 1); // neural cosmos recedes as you descend
       waveMats.forEach(({ mat, ampScale }) => {
         mat.uniforms.wt.value = t; mat.uniforms.wamp.value = st.waveAmp * ampScale;
         mat.uniforms.wtint.value.lerp(tmp, 0.05);
-        if (mat.uniforms.glow) mat.uniforms.glow.value = st.density;
+        if (mat.uniforms.glow) mat.uniforms.glow.value = st.density * uniFade;
       });
       const ps = 1 + st.pulse * 0.2;
       embryo.scale.setScalar(ps);
       echo.scale.setScalar(st.multiEcho);
-      echoMat.opacity = 0.2 / st.multiEcho;
+      echoMat.opacity = (0.2 / st.multiEcho) * uniFade;
+      globeMat.visible = camDist > 3; // membrane fades out of the way deep inside
 
       const gp = gGeo.attributes.position as THREE.BufferAttribute, gc = gGeo.attributes.color as THREE.BufferAttribute;
       for (let i = 0; i < N; i++) {
@@ -350,7 +358,8 @@ export default function Sandbox() {
       tess.rotation.x = t * 0.2 * st.tesseractSpeed; tess.rotation.y = t * 0.3 * st.tesseractSpeed;
       b2.rotation.x = -t * 0.5 * st.tesseractSpeed; b2.rotation.y = -t * 0.4 * st.tesseractSpeed;
       b3.rotation.x = t * 0.8 * st.tesseractSpeed; b3.rotation.z = -t * 0.6 * st.tesseractSpeed;
-      boxMat.opacity = 0.3 + Math.sin(t * 3) * 0.2;
+      boxMat.opacity = (0.3 + Math.sin(t * 3) * 0.2) * uniFade; innerMat.opacity = 0.6 * uniFade;
+      galaxy.material.opacity = uniFade; galaxy.visible = uniFade > 0.01; tess.visible = uniFade > 0.01;
       boxMat.color.setHSL(st.emanationHue / 360, 1, 0.8);
 
       beam.position.y = 12 * ps;
@@ -360,13 +369,20 @@ export default function Sandbox() {
 
       const hueN = st.emanationHue / 360;
       globeMat.uniforms.time.value = t; globeMat.uniforms.hue.value = hueN;
-      dendMat.uniforms.time.value = t; dendMat.uniforms.glow.value = st.density;
+      dendMat.uniforms.time.value = t; dendMat.uniforms.glow.value = st.density * uniFade;
       somaMat.uniforms.psize.value = 0.05 + st.pulse * 0.04;
       cosmicDust.rotation.y = t * 0.005;
       micro.rotation.x = t * 0.1; micro.rotation.y = -t * 0.07;
       // keep micro detail readable: scale point size with zoom distance
-      const dist = camera.position.length();
-      controls.zoomSpeed = dist < 15 ? 0.6 : 1.6;
+      const pos = pot.update(camDist, t);
+      controls.zoomSpeed = 1.2;
+      if (scaleRef.current) {
+        const sg = STAGES[Math.round(pos)], ex = exponentAt(pos);
+        scaleRef.current.querySelector("[data-exp]").textContent = `10^${ex.toFixed(1)} m`;
+        scaleRef.current.querySelector("[data-name]").textContent = sg.name;
+        scaleRef.current.querySelector("[data-note]").textContent = sg.note;
+        scaleRef.current.querySelector("[data-bar]").style.width = `${(pos / (STAGES.length - 1)) * 100}%`;
+      }
 
       controls.update();
       renderer.render(scene, camera);
@@ -440,6 +456,14 @@ export default function Sandbox() {
             <h2 className="sandbox-title">{cfg.label}</h2>
             <p className="text-sm text-muted-foreground">{cfg.tagline}</p>
           </header>
+
+          <div ref={scaleRef} className="sandbox-scale" aria-live="off">
+            <p className="sandbox-eyebrow">Powers of Ten · <span data-exp>10^7 m</span></p>
+            <p className="sandbox-section" data-name>The Whole Earth</p>
+            <p className="text-xs text-muted-foreground" data-note></p>
+            <div className="sandbox-scale-track"><div className="sandbox-scale-bar" data-bar /></div>
+            <p className="mt-1 text-[0.6rem] text-muted-foreground">Pinch / scroll into the globe to descend</p>
+          </div>
 
           <nav className="sandbox-elements">
             {ORDER.map((k) => (
