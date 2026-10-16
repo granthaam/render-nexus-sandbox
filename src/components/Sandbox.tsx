@@ -358,7 +358,8 @@ export default function Sandbox() {
       tess.rotation.x = t * 0.2 * st.tesseractSpeed; tess.rotation.y = t * 0.3 * st.tesseractSpeed;
       b2.rotation.x = -t * 0.5 * st.tesseractSpeed; b2.rotation.y = -t * 0.4 * st.tesseractSpeed;
       b3.rotation.x = t * 0.8 * st.tesseractSpeed; b3.rotation.z = -t * 0.6 * st.tesseractSpeed;
-      boxMat.opacity = 0.3 + Math.sin(t * 3) * 0.2;
+      boxMat.opacity = (0.3 + Math.sin(t * 3) * 0.2) * uniFade; innerMat.opacity = 0.6 * uniFade;
+      galaxy.material.opacity = uniFade; galaxy.visible = uniFade > 0.01; tess.visible = uniFade > 0.01;
       boxMat.color.setHSL(st.emanationHue / 360, 1, 0.8);
 
       beam.position.y = 12 * ps;
