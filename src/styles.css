@@ -182,3 +182,28 @@
   .glass-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--foreground); border: 0; }
 }
 @keyframes shine { to { background-position: 200% center; } }
+
+/* Mobile-first scale lock: safe areas, touch behaviour, touch targets */
+html, body { overscroll-behavior: none; }
+* { touch-action: manipulation; }
+.sandbox-root, .sandbox-root canvas { touch-action: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.glass-panel { touch-action: pan-y; }
+.sandbox-toggle { top: calc(1rem + env(safe-area-inset-top)); }
+.sandbox-hud { top: calc(4rem + env(safe-area-inset-top)); }
+.glass-panel { top: calc(4rem + env(safe-area-inset-top)); padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)); }
+.sandbox-elements { bottom: calc(1rem + env(safe-area-inset-bottom)); }
+.sandbox-scale { bottom: calc(5rem + env(safe-area-inset-bottom)); }
+@media (max-width: 640px) {
+  .sandbox-toggle, .sandbox-chip { min-height: 44px; }
+  .glass-slider { height: 6px; }
+  .glass-slider::-webkit-slider-thumb { width: 24px; height: 24px; }
+  .glass-slider::-moz-range-thumb { width: 24px; height: 24px; }
+}
+@media (max-width: 640px) and (orientation: portrait) {
+  .glass-panel { left: .25rem; right: .25rem; width: auto; top: auto; bottom: calc(4.5rem + env(safe-area-inset-bottom)); max-height: 45vh; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .glass-panel { max-height: 80vh; padding: .75rem; }
+  .sandbox-scale { bottom: calc(4rem + env(safe-area-inset-bottom)); }
+}
+@media (min-aspect-ratio: 21/9) { .glass-panel { max-width: 360px; } }
