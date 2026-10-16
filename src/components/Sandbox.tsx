@@ -100,7 +100,8 @@ export default function Sandbox() {
       setGlError(true);
       return;
     }
-    renderer.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); setGlError(true); });
+    renderer.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); if (!disposed) setGlError(true); });
+    let disposed = false;
     renderer.setSize(el.clientWidth, el.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     el.appendChild(renderer.domElement);
@@ -382,6 +383,7 @@ export default function Sandbox() {
       window.removeEventListener("resize", onResize);
       controls.dispose();
       renderer.dispose();
+      disposed = true;
       renderer.forceContextLoss(); // free the GPU context so remounts never exhaust the browser limit
       el.removeChild(renderer.domElement);
     };
