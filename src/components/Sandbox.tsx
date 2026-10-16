@@ -251,7 +251,7 @@ export default function Sandbox() {
       harm.volume.value = -10;
       harm.triggerAttack(Tone.Frequency("C5").transpose(state.current.pitch5d).toNote());
       const heart = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 2, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1 } }).toDestination();
-      new Tone.Loop((time) => { heart.triggerAttackRelease("C1", "16n", time); }, "4n").start(0);
+      Tone.Transport.scheduleRepeat((time) => { try { heart.triggerAttackRelease("C1", "16n", time + 0.01); } catch {} }, "4n");
       Tone.Transport.start();
       audio.current = { Tone, harm, dispose: () => { drone.dispose(); harm.dispose(); heart.dispose(); } };
     } catch (e) { console.warn("audio unavailable", e); }
