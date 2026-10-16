@@ -63,8 +63,8 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --background: oklch(0.08 0.01 270);
+  --foreground: oklch(0.93 0.01 250);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
@@ -74,12 +74,16 @@
   --secondary: oklch(0.968 0.007 247.896);
   --secondary-foreground: oklch(0.208 0.042 265.755);
   --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
+  --muted-foreground: oklch(0.78 0.02 250);
+  --glass: oklch(0.2 0.03 265 / 40%);
+  --glass-border: oklch(1 0 0 / 15%);
+  --glow: oklch(1 0 0 / 80%);
+  --cyan: oklch(0.85 0.13 210);
   --accent: oklch(0.968 0.007 247.896);
   --accent-foreground: oklch(0.208 0.042 265.755);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
+  --border: oklch(1 0 0 / 8%);
   --input: oklch(0.929 0.013 255.508);
   --ring: oklch(0.704 0.04 256.788);
   --chart-1: oklch(0.646 0.222 41.116);
@@ -142,3 +146,33 @@
     color: var(--color-foreground);
   }
 }
+
+@layer components {
+  .sandbox-root { position: fixed; inset: 0; overflow: hidden; background: var(--background); user-select: none; }
+  .intro-overlay { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(circle at center, oklch(0.2 0.04 265), oklch(0.12 0.03 265)); transition: opacity 1.5s ease; }
+  .intro-overlay[data-hidden="true"] { opacity: 0; pointer-events: none; }
+  .enter-btn { padding: 1rem 2.5rem; border-radius: 9999px; background: var(--foreground); color: var(--background); font-weight: 700; letter-spacing: 0.15em; transition: all .3s; }
+  .enter-btn:hover { transform: scale(1.05); box-shadow: 0 0 40px var(--glow); }
+  .rainbow-text { background: linear-gradient(90deg,#ff4b4b,#ffb04b,#f0ff4b,#4bff5a,#4bbaff,#8a4bff,#ff4be6); background-size: 200% auto;
+    -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 5s linear infinite; }
+  .sandbox-eyebrow { font-size: .65rem; text-transform: uppercase; letter-spacing: .2em; color: var(--cyan); font-weight: 700; }
+  .sandbox-title { font-size: 2.25rem; font-weight: 900; letter-spacing: -0.03em; text-shadow: 0 0 20px var(--glow); }
+  .sandbox-section { font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; text-shadow: 0 0 10px var(--glow); }
+  .sandbox-label { display: flex; justify-content: space-between; font-size: .65rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted-foreground); }
+  .sandbox-elements { position: absolute; left: 50%; bottom: 1rem; transform: translateX(-50%); z-index: 10; display: flex; gap: .35rem; padding: .35rem;
+    border-radius: 9999px; background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(20px); max-width: calc(100vw - 1rem); overflow-x: auto; }
+  .sandbox-chip { padding: .45rem .8rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; white-space: nowrap; transition: all .2s; }
+  .sandbox-chip[data-active="true"] { background: var(--foreground); color: var(--background); box-shadow: 0 0 20px var(--glow); }
+  .sandbox-toggle { position: absolute; top: 1rem; right: 1rem; z-index: 20; padding: .5rem 1rem; border-radius: 9999px; font-size: .75rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(20px); }
+  .glass-panel { position: absolute; z-index: 15; top: 4rem; right: 1rem; width: 300px; max-height: calc(100vh - 9rem); overflow-y: auto; padding: 1.25rem;
+    border-radius: 20px; background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(20px);
+    transition: transform .3s ease, opacity .3s; transform: translateX(120%); opacity: 0; }
+  .glass-panel[data-open="true"] { transform: none; opacity: 1; }
+  @media (max-width: 640px) { .glass-panel { left: 1rem; width: auto; } }
+  .glass-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 3px; background: var(--glass-border); border-radius: 2px; margin: 8px 0 12px; }
+  .glass-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--foreground); box-shadow: 0 0 12px var(--glow); }
+  .glass-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--foreground); border: 0; }
+}
+@keyframes shine { to { background-position: 200% center; } }

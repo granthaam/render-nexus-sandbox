@@ -1,24 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useState } from "react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+const Sandbox = lazy(() => import("@/components/Sandbox"));
+
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "5D Gestation — Elemental Sandbox" },
+      { name: "description", content: "An interactive 5D cosmic sandbox with five elemental pillars, a tesseract, a living wavepool and generative sound." },
+      { property: "og:title", content: "5D Gestation — Elemental Sandbox" },
+      { property: "og:description", content: "Shift between Water, Earth, Plasma, Air and Fire inside a living 5D firmament." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="sandbox-root">
+      {ready && (
+        <Suspense fallback={null}>
+          <Sandbox />
+        </Suspense>
+      )}
+    </main>
   );
 }
