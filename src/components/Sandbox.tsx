@@ -111,6 +111,11 @@ export default function Sandbox() {
     const gridMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending });
     pool.add(new THREE.Mesh(waveGeo, gridMat));
 
+    const dotCanvas = document.createElement("canvas"); dotCanvas.width = dotCanvas.height = 64;
+    const dctx = dotCanvas.getContext("2d")!; const grd = dctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grd.addColorStop(0, "rgba(255,255,255,1)"); grd.addColorStop(0.3, "rgba(255,255,255,0.6)"); grd.addColorStop(1, "rgba(255,255,255,0)");
+    dctx.fillStyle = grd; dctx.fillRect(0, 0, 64, 64);
+    const dot = new THREE.CanvasTexture(dotCanvas);
     const embryo = new THREE.Group();
     scene.add(embryo);
     const N = 4000;
@@ -123,7 +128,7 @@ export default function Sandbox() {
     }
     gGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     gGeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
-    const galaxy = new THREE.Points(gGeo, new THREE.PointsMaterial({ size: 0.35, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+    const galaxy = new THREE.Points(gGeo, new THREE.PointsMaterial({ map: dot, size: 0.35, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
     embryo.add(galaxy);
 
     const sacGeo = new THREE.SphereGeometry(12, 48, 48);
@@ -200,7 +205,7 @@ export default function Sandbox() {
           float veins=pow(1.0-abs(noise(p*40.0+time*0.05)),20.0);
           vec3 tissue=mix(vec3(0.22,0.04,0.1),vec3(0.75,0.3,0.45),ridge);
           vec3 spec=spectrum(fract(ridge*0.7+fold*0.3+hue+time*0.015));
-          vec3 c=tissue*0.7+spec*fold*0.9*glow+vec3(1.0,0.85,0.95)*veins*glow;
+          vec3 c=tissue*0.6+spec*fold*0.55*glow+vec3(1.0,0.85,0.95)*veins*0.5*glow;
           gl_FragColor=vec4(c,1.0); }`,
       side: THREE.BackSide, depthWrite: false, fog: false,
     });
@@ -214,7 +219,7 @@ export default function Sandbox() {
         vertexShader: vsPos,
         fragmentShader: NOISE + `varying vec3 vP; uniform float time, hue, glow;
           void main(){ vec3 p=normalize(vP); float f=pow(1.0-abs(fbm(p*${(8 + i * 4).toFixed(1)}+time*0.02)),10.0);
-            vec3 c=spectrum(fract(f+hue+time*0.01)); gl_FragColor=vec4(c*glow, f*0.35); }`,
+            vec3 c=spectrum(fract(f+hue+time*0.01)); gl_FragColor=vec4(c*glow*0.6, f*0.18); }`,
         transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
       });
       const g = new THREE.Mesh(new THREE.SphereGeometry(rad, 64, 64), m);
@@ -254,7 +259,7 @@ export default function Sandbox() {
     const dendMat = new THREE.ShaderMaterial({
       uniforms: { time: { value: 0 }, glow: { value: 1 } },
       vertexShader: `attribute float phase; attribute vec3 color; varying vec3 vC; varying float vPh; void main(){ vC=color; vPh=phase; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-      fragmentShader: `varying vec3 vC; varying float vPh; uniform float time, glow; void main(){ float pulse=pow(0.5+0.5*sin(vPh-time*4.0),8.0); gl_FragColor=vec4(vC*(0.35+pulse*1.6)*glow, 0.35+pulse*0.6); }`,
+      fragmentShader: `varying vec3 vC; varying float vPh; uniform float time, glow; void main(){ float pulse=pow(0.5+0.5*sin(vPh-time*4.0),8.0); gl_FragColor=vec4(vC*(0.12+pulse*0.9)*glow, 0.12+pulse*0.5); }`,
       transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     });
     scene.add(new THREE.LineSegments(dGeo, dendMat));
@@ -263,7 +268,7 @@ export default function Sandbox() {
     const somaCol = new Float32Array(NEU * 3);
     neurons.forEach((n, i) => { c1.setHSL((n.length() / 1100) % 1, 1, 0.7); somaCol.set([c1.r, c1.g, c1.b], i * 3); });
     somaGeo.setAttribute("color", new THREE.BufferAttribute(somaCol, 3));
-    const somaMat = new THREE.PointsMaterial({ size: 3, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+    const somaMat = new THREE.PointsMaterial({ map: dot, size: 1.6, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
     scene.add(new THREE.Points(somaGeo, somaMat));
 
     // ===== Multi-scale dust: cosmic → microscopic =====
@@ -277,9 +282,9 @@ export default function Sandbox() {
       }
       g.setAttribute("position", new THREE.BufferAttribute(p, 3));
       g.setAttribute("color", new THREE.BufferAttribute(c, 3));
-      return new THREE.Points(g, new THREE.PointsMaterial({ size, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.85, depthWrite: false }));
+      return new THREE.Points(g, new THREE.PointsMaterial({ map: dot, size, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.6, depthWrite: false }));
     };
-    const cosmicDust = makeDust(40000, 15, 1100, 0.9);
+    const cosmicDust = makeDust(40000, 15, 1100, 0.45);
     scene.add(cosmicDust);
     // microscopic interior of the globe: quantum foam that resolves when zoomed in
     const micro = new THREE.Group();
@@ -364,7 +369,7 @@ export default function Sandbox() {
       cortexMat.uniforms.time.value = t; cortexMat.uniforms.hue.value = hueN; cortexMat.uniforms.glow.value = st.density;
       gyri.forEach((g, i) => { g.material.uniforms.time.value = t; g.material.uniforms.glow.value = st.density; g.rotation.y = t * 0.01 * (i + 1); });
       dendMat.uniforms.time.value = t; dendMat.uniforms.glow.value = st.density;
-      somaMat.size = 2 + st.pulse * 3;
+      somaMat.size = 1.4 + st.pulse * 1.2;
       cosmicDust.rotation.y = t * 0.005;
       micro.rotation.x = t * 0.1; micro.rotation.y = -t * 0.07;
       // keep micro detail readable: scale point size with zoom distance
@@ -429,7 +434,7 @@ export default function Sandbox() {
 
       {entered && (
         <>
-          <header className="absolute left-4 top-4 z-10 max-w-[60%]">
+          <header className="sandbox-hud">
             <p className="sandbox-eyebrow">Pillar {idx + 1} / 5 · ψ = {ui.psi.toFixed(2)}</p>
             <h2 className="sandbox-title">{cfg.label}</h2>
             <p className="text-sm text-muted-foreground">{cfg.tagline}</p>
