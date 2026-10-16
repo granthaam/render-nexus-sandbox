@@ -91,7 +91,9 @@ export default function Sandbox() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
     const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.005, 4000);
-    camera.position.set(0, 30, el.clientWidth < 600 ? 120 : 90);
+    // Close framing: globe + tesseract fill the view, beam rising above
+    const portrait = el.clientHeight > el.clientWidth;
+    camera.position.set(0, 4, portrait ? 46 : 34);
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 2, alpha: true, powerPreference: "high-performance", failIfMajorPerformanceCaveat: false });
@@ -107,6 +109,7 @@ export default function Sandbox() {
     el.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.target.set(0, 6, 0);
     controls.maxDistance = 900;
     controls.minDistance = 0.05;
     controls.zoomSpeed = 1.6;
