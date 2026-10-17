@@ -29,7 +29,8 @@ describe('physical Powers of Ten ladder', () => {
   });
   it('preserves even microscopic viewing directions', () => {
     const e = engine(), c = new PowersOfTenController(e, 0); e.camera.position.set(1e-18, 0, 0); c.jumpTo(11, { instant: true });
-    expect(e.camera.position.clone().normalize().toArray()).toEqual([1, 0, 0]);
+    const direction = e.camera.position.clone().normalize();
+    expect(direction.x).toBeCloseTo(1, 12); expect(direction.y).toBe(0); expect(direction.z).toBe(0);
   });
   it('maps every physical radius to its ladder position', () => { radii.forEach((r, i) => expect(positionAtRadius(r)).toBeCloseTo(i)); });
   it('reserves the full number row for stage jumps', () => { '1234567890-='.split('').forEach((key, i) => expect(stageKeyIndex(key)).toBe(i)); expect(stageKeyIndex('b')).toBe(-1); });

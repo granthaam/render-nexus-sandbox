@@ -117,7 +117,7 @@ export function buildPowersOfTen(engine: Engine, startIndex = 6, options: { dot?
   const layers = STAGES.map((_, i) => {
     const geo = i < 8 ? buildStageGeometry(mapping[i]) : cosmicGeometry(i);
     const object = new THREE.Group();
-    const pm = new THREE.PointsMaterial({ map: options.dot, size: .06, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const pm = new THREE.PointsMaterial({ map: options.dot ?? null, size: .06, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     const lm = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     object.add(new THREE.Points(geo.points, pm));
     if (geo.lines.getAttribute('position')) object.add(new THREE.LineSegments(geo.lines, lm));
