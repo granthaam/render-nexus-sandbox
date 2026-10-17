@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { buildPowersOfTen, STAGES, stageKeyIndex } from "@/layers/powersOfTen";
+import { buildPowersOfTen, audioSweepAt, stageKeyIndex } from "@/layers/powersOfTen";
 import { PotBar } from "./PotBar";
 import { buildDeformationField } from "@/deformationField";
 import { Button } from "@/components/ui/button";
@@ -360,7 +360,6 @@ export default function Sandbox() {
     controls.update();
     const onOrbitStart = () => {
       pot.controller.adoptCamera();
-      pot.controller.jumpTo(pot.controller.index, { instant: true });
     };
     controls.addEventListener("start", onOrbitStart);
     micro.add(makeDust(25000, 0.02, 1.2, 0.004, 1.2, 1.25, 0.05));
@@ -490,8 +489,9 @@ export default function Sandbox() {
         const a = audio.current, position = pot.controller.position01;
         if (a && !mutedRef.current && Math.abs(position - lastPotAudioPos) > .03) {
           lastPotAudioPos = position;
-          a.lp.frequency.rampTo(200 + position * 1000, .8);
-          a.hp.frequency.rampTo(6000 - position * 4500, .8);
+          const sweep = audioSweepAt(position);
+          a.lp.frequency.rampTo(sweep.low, .8);
+          a.hp.frequency.rampTo(sweep.high, .8);
         }
       }
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { STAGES, stageRadius, clampStage, PowersOfTenController, positionAtRadius, stageKeyIndex, buildPowersOfTen } from '../layers/powersOfTen';
+import { STAGES, stageRadius, clampStage, PowersOfTenController, positionAtRadius, stageKeyIndex, buildPowersOfTen, audioSweepAt } from '../layers/powersOfTen';
 const engine = () => ({ scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera(50, 1, .01, 1e6) });
 describe('physical Powers of Ten ladder', () => {
   const radii = [1e-18, 1e-15, 1e-10, 2e-9, 1e-5, 1, 1e4, 6.37e6, 6.96e8, 4.5e12, 4.7e20, 4.4e26];
@@ -34,6 +34,8 @@ describe('physical Powers of Ten ladder', () => {
   });
   it('maps every physical radius to its ladder position', () => { radii.forEach((r, i) => expect(positionAtRadius(r)).toBeCloseTo(i)); });
   it('reserves the full number row for stage jumps', () => { '1234567890-='.split('').forEach((key, i) => expect(stageKeyIndex(key)).toBe(i)); expect(stageKeyIndex('b')).toBe(-1); });
+  it('sweeps low-pass from 200 to 1200 Hz', () => { expect(audioSweepAt(0).low).toBe(200); expect(audioSweepAt(1).low).toBe(1200); });
+  it('sweeps high-pass from 6000 to 1500 Hz', () => { expect(audioSweepAt(0).high).toBe(6000); expect(audioSweepAt(1).high).toBe(1500); });
   it('rebases render distance without discarding physical scale', () => {
     const e = engine(), c = new PowersOfTenController(e, 0, 9);
     for (const [i, radius] of [[0, 1e-18], [11, 4.4e26]] as const) { c.jumpTo(i, { instant: true }); expect(e.camera.position.length()).toBeCloseTo(33.12); expect(c.radius / radius).toBeCloseTo(1, 10); }

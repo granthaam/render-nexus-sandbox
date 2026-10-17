@@ -19,6 +19,7 @@ export const STAGES: Stage[] = [
 export const clampStage = (i: number) => Math.max(0, Math.min(11, Math.round(Number.isFinite(i) ? i : 6)));
 export const stageRadius = (i: number) => STAGES[clampStage(i)]?.radius ?? 1e4;
 export const stageKeyIndex = (key: string) => '1234567890-='.indexOf(key);
+export const audioSweepAt = (position: number) => ({ low: 200 + position * 1000, high: 6000 - position * 4500 });
 const DIST_FACTOR = 3.2 * 1.15;
 const LOGS = STAGES.map(s => Math.log(s.radius));
 export function positionAtRadius(radius: number) {

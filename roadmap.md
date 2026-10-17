@@ -5,6 +5,6 @@
 - [x] Verify values with tests and exercise the scene and controls on desktop and phone-sized views.
 - [x] Remove the former field name throughout the source and interface.
 - [x] Fix and verify the opening screen on phone and desktop.
-- [ ] Add the supplied twelve-stop physical scale ladder with safe logarithmic zoom.
-- [ ] Connect stage buttons, keyboard navigation, and the sound sweep.
-- [ ] Verify scale math, rendered stages, and phone/desktop navigation.
+- [x] Add the supplied twelve-stop physical scale ladder with safe logarithmic zoom.
+- [x] Connect stage buttons, keyboard navigation, and the sound sweep.
+- [x] Verify scale math, rendered stages, and phone/desktop navigation.
