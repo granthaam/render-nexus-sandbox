@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { buildPowersOfTen, STAGES, MIN_DIST, exponentAt } from "./powersOfTen";
-import { buildBirthdayField } from "@/birthdayField";
+import { buildDeformationField } from "@/deformationField";
 import { Button } from "@/components/ui/button";
 
 type ElementKey = "water" | "earth" | "plasma" | "air" | "fire";
@@ -20,14 +20,14 @@ export const ELEMENTS: Record<
 };
 export const ORDER: ElementKey[] = ["water", "earth", "plasma", "air", "fire"];
 
-const DEFAULTS = { timeSpeed: 1, tesseractSpeed: 1, hyperVib: 0, multiEcho: 1, waveAmp: 6, emanationHue: 200, beamIntensity: 1.5, psi: 0, bpm: 55, pitch5d: 0, density: 1, master: 0.8, droneVol: 0.7, harmVol: 0.5, heartVol: 0.8, birthdayK: 1.13, birthdayIterations: 5, birthdaySpeed: 0.1 };
+const DEFAULTS = { timeSpeed: 1, tesseractSpeed: 1, hyperVib: 0, multiEcho: 1, waveAmp: 6, emanationHue: 200, beamIntensity: 1.5, psi: 0, bpm: 55, pitch5d: 0, density: 1, master: 0.8, droneVol: 0.7, harmVol: 0.5, heartVol: 0.8, deformationK: 1.13, deformationIterations: 5, deformationSpeed: 0.1 };
 type S = typeof DEFAULTS;
 
 const SLIDERS: { group: string; items: { k: keyof S; label: string; min: number; max: number; step: number; suffix?: string }[] }[] = [
-  { group: "Birthday Field", items: [
-    { k: "birthdayK", label: "Scaling k", min: 0, max: 3, step: 0.01 },
-    { k: "birthdayIterations", label: "Repeat Iterations", min: 1, max: 8, step: 1 },
-    { k: "birthdaySpeed", label: "Field Time Speed", min: 0, max: 1, step: 0.01 } ] },
+  { group: "Deformation Field", items: [
+    { k: "deformationK", label: "Scaling k", min: 0, max: 3, step: 0.01 },
+    { k: "deformationIterations", label: "Repeat Iterations", min: 1, max: 8, step: 1 },
+    { k: "deformationSpeed", label: "Field Time Speed", min: 0, max: 1, step: 0.01 } ] },
   { group: "⧖ 4D Time", items: [
     { k: "timeSpeed", label: "Time Flow", min: 0, max: 5, step: 0.1, suffix: "x" },
     { k: "tesseractSpeed", label: "Tesseract Morph", min: 0, max: 5, step: 0.1 } ] },
@@ -162,11 +162,11 @@ export default function Sandbox() {
     const embryo = new THREE.Group();
     scene.add(embryo);
     const palette = getComputedStyle(el);
-    const birthdayField = buildBirthdayField({
+    const deformationField = buildDeformationField({
       containmentRadius: 11.5,
-      colors: ["--birthday-core", "--birthday-caustic", "--birthday-outer"].map((token) => new THREE.Color(palette.getPropertyValue(token).trim())),
+      colors: ["--deformation-core", "--deformation-caustic", "--deformation-outer"].map((token) => new THREE.Color(palette.getPropertyValue(token).trim())),
     });
-    embryo.add(birthdayField.mesh);
+    embryo.add(deformationField.mesh);
     const N = 4000;
     const gGeo = new THREE.BufferGeometry();
     const pos = new Float32Array(N * 3), bPos = new Float32Array(N * 3), col = new Float32Array(N * 3), pick = new Float32Array(N);
@@ -383,13 +383,13 @@ export default function Sandbox() {
       PERF.tick++;
       if (PERF.skip > 1 && PERF.tick % PERF.skip !== 0) return;
       const st = state.current, dt = Math.min(clock.getDelta(), 0.1);
-      fieldElapsed += dt * st.birthdaySpeed;
-      birthdayField.setTimeScale(1);
-      birthdayField.update(fieldElapsed);
-      birthdayField.setK(st.birthdayK);
-      birthdayField.setIterations(st.birthdayIterations);
-      birthdayField.uniforms.uUseUnnormalizedRInCos.value = fieldMode.current.raw ? 1 : 0;
-      birthdayField.uniforms.uViewportHeight.value = VP.h * renderer.getPixelRatio();
+      fieldElapsed += dt * st.deformationSpeed;
+      deformationField.setTimeScale(1);
+      deformationField.update(fieldElapsed);
+      deformationField.setK(st.deformationK);
+      deformationField.setIterations(st.deformationIterations);
+      deformationField.uniforms.uUseUnnormalizedRInCos.value = fieldMode.current.raw ? 1 : 0;
+      deformationField.uniforms.uViewportHeight.value = VP.h * renderer.getPixelRatio();
       t += dt * st.timeSpeed;
       const cur = ELEMENTS[st.element];
       const nxt = ELEMENTS[ORDER[(ORDER.indexOf(st.element) + 1) % ORDER.length]];
@@ -403,8 +403,8 @@ export default function Sandbox() {
       cA.setHex(cur.wave); cB.setHex(nxt.wave); tmp.copy(cA).lerp(cB, st.psi);
       const camDist = camera.position.distanceTo(controls.target);
       const uniFade = THREE.MathUtils.clamp((camDist - 8) / 20, 0, 1); // neural cosmos recedes as you descend
-      birthdayField.mesh.visible = fieldMode.current.visible && uniFade > 0.01;
-      birthdayField.uniforms.uOpacity.value = uniFade * 0.65;
+      deformationField.mesh.visible = fieldMode.current.visible && uniFade > 0.01;
+      deformationField.uniforms.uOpacity.value = uniFade * 0.65;
       waveMats.forEach(({ mat, ampScale }) => {
         mat.uniforms.wt.value = t; mat.uniforms.wamp.value = st.waveAmp * ampScale;
         mat.uniforms.wtint.value.lerp(tmp, 0.05);
@@ -503,7 +503,7 @@ export default function Sandbox() {
       window.removeEventListener("touchend", onTe);
       window.removeEventListener("click", onClick, true);
       controls.dispose();
-      birthdayField.dispose();
+      deformationField.dispose();
       renderer.dispose();
       disposed = true;
       renderer.forceContextLoss(); // free the GPU context so remounts never exhaust the browser limit
@@ -514,6 +514,7 @@ export default function Sandbox() {
   useEffect(() => () => { audio.current?.Tone.Transport.stop(); audio.current?.dispose(); }, []);
 
   const enter = async () => {
+    if (entered || glError) return;
     setEntered(true);
     try {
       const Tone = await import("tone");
@@ -548,7 +549,7 @@ export default function Sandbox() {
         <div className="intro-overlay z-[60]">
           <h2 className="sandbox-title mb-2">3D view paused</h2>
           <p className="mb-6 max-w-sm px-6 text-center text-sm text-muted-foreground">Your browser ran out of graphics memory. Close other tabs, then reload.</p>
-          <button onClick={() => window.location.reload()} className="enter-btn">RELOAD</button>
+          <Button onClick={() => window.location.reload()} className="enter-btn">Reload</Button>
         </div>
       )}
 
@@ -586,7 +587,7 @@ export default function Sandbox() {
           <aside className="glass-panel" data-open={panelOpen}>
             <h3 className="sandbox-section mb-3 text-center">Master Controls</h3>
             <div className="mb-3 flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" aria-pressed={fieldUi.visible} onClick={() => toggleField()}>{fieldUi.visible ? "◉" : "○"} Birthday Field</Button>
+              <Button variant="outline" size="sm" aria-pressed={fieldUi.visible} onClick={() => toggleField()}>{fieldUi.visible ? "◉" : "○"} Deformation Field</Button>
               <Button variant="outline" size="sm" aria-pressed={fieldUi.raw} onClick={() => toggleField(true)}>{fieldUi.raw ? "Raw r" : "Normalized r̂"}</Button>
             </div>
             {SLIDERS.map((g) => (
@@ -604,15 +605,13 @@ export default function Sandbox() {
         </>
       )}
 
-      <div className="intro-overlay" data-hidden={entered}>
-        <p className="sandbox-eyebrow mb-3">Elemental systems online</p>
-        <h1 className="rainbow-text mb-4 text-center text-5xl font-black tracking-tighter md:text-7xl">5D GESTATION</h1>
-        <p className="mb-8 max-w-lg px-6 text-center text-sm leading-relaxed text-muted-foreground">
-          Navigate the nested Tesseract, travel from the macroverse to the microverse inside the wave-driven globe, and shift between the five elemental pillars — Water, Earth, Plasma, Air and Fire.
-        </p>
-        <button onClick={enter} className="enter-btn">ENTER THE FIRMAMENT</button>
-        <p className="sandbox-eyebrow mt-6">Drag to rotate · Zoom from cosmos to microscopic · Sound on</p>
-      </div>
+      {!entered && !glError && (
+        <div className="intro-overlay">
+          <h1 className="intro-title">5D GESTATION</h1>
+          <p className="intro-subtitle">Macroverse to microverse</p>
+          <Button onClick={enter} className="enter-btn">Enter the universe <span aria-hidden="true">→</span></Button>
+        </div>
+      )}
     </div>
   );
 }

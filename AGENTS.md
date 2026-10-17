@@ -10,5 +10,5 @@
 <!-- LOVABLE:END -->
 
 - Keep the existing Three.js scene owner for incremental effects; migrating engines would risk its established zoom, audio, and viewport behavior.
-- Build the birthday deformation as a standalone GPU point-field module with uniforms and explicit disposal, so the scene can control it without CPU vertex updates.
-- Apply optional radial compression only when embedding the birthday field in the globe, preserving the standalone planar domain.
+- Build the deformation deformation as a standalone GPU point-field module with uniforms and explicit disposal, so the scene can control it without CPU vertex updates.
+- Apply optional radial compression only when embedding the deformation field in the globe, preserving the standalone planar domain.

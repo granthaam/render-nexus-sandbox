@@ -78,10 +78,11 @@
   --glass: oklch(0.2 0.03 265 / 40%);
   --glass-border: oklch(1 0 0 / 15%);
   --glow: oklch(1 0 0 / 80%);
+  --entry-veil: oklch(0 0 0 / 58%);
   --cyan: oklch(0.85 0.13 210);
-  --birthday-core: #73146b;
-  --birthday-caustic: #ffad5c;
-  --birthday-outer: #d6bd9e;
+  --deformation-core: #73146b;
+  --deformation-caustic: #ffad5c;
+  --deformation-outer: #d6bd9e;
   --accent: oklch(0.968 0.007 247.896);
   --accent-foreground: oklch(0.208 0.042 265.755);
   --destructive: oklch(0.577 0.245 27.325);
@@ -153,10 +154,16 @@
 @layer components {
   .sandbox-root { position: fixed; inset: 0; overflow: hidden; background: var(--background); user-select: none; }
   .intro-overlay { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: radial-gradient(circle at center, oklch(0.2 0.04 265), oklch(0.12 0.03 265)); transition: opacity 1.5s ease; }
-  .intro-overlay[data-hidden="true"] { opacity: 0; pointer-events: none; }
-  .enter-btn { padding: 1rem 2.5rem; border-radius: 9999px; background: var(--foreground); color: var(--background); font-weight: 700; letter-spacing: 0.15em; transition: all .3s; }
-  .enter-btn:hover { transform: scale(1.05); box-shadow: 0 0 40px var(--glow); }
+    gap: 1.5rem; padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
+    background: var(--entry-veil); text-align: center; overflow-y: auto; }
+  .intro-title { margin: 0; max-width: 100%; font-size: 3rem; line-height: 1.05; font-weight: 900; letter-spacing: 0; }
+  .intro-subtitle { margin: 0; font-size: .875rem; color: var(--foreground); }
+  .enter-btn { min-height: 48px; max-width: 100%; height: auto; white-space: normal; padding: 1rem 2rem; border-radius: 8px; background: var(--foreground); color: var(--background); font-weight: 700; letter-spacing: 0; transition: box-shadow .3s; }
+  .enter-btn:hover { background: var(--foreground); color: var(--background); box-shadow: 0 0 24px var(--glow); }
+  .entry-loading { position: absolute; inset: 0; display: grid; place-content: center; gap: 1rem; text-align: center; padding: 1.5rem; background: var(--background); }
+  @media (min-width: 768px) { .intro-title { font-size: 4.5rem; } }
+  @media (max-height: 450px) { .intro-overlay { gap: .75rem; } .intro-title { font-size: 2.25rem; } }
+  @media (prefers-reduced-motion: reduce) { .rainbow-text { animation: none !important; } .enter-btn { transition: none; } }
   .rainbow-text { background: linear-gradient(90deg,#ff4b4b,#ffb04b,#f0ff4b,#4bff5a,#4bbaff,#8a4bff,#ff4be6); background-size: 200% auto;
     -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 5s linear infinite; }
   .sandbox-eyebrow { font-size: .65rem; text-transform: uppercase; letter-spacing: .2em; color: var(--cyan); font-weight: 700; }

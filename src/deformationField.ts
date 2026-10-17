@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-export interface BirthdayFieldOptions {
+export interface DeformationFieldOptions {
   gridResolution?: number;
   gridSize?: number;
   iterations?: number;
@@ -69,7 +69,7 @@ const FRAGMENT_SHADER = /* glsl */ `
   }
 `;
 
-export function buildBirthdayField(opts: BirthdayFieldOptions = {}) {
+export function buildDeformationField(opts: DeformationFieldOptions = {}) {
   const res = Math.max(2, Math.min(600, Math.round(finite(opts.gridResolution ?? 300, 300))));
   const size = Math.max(0.001, finite(opts.gridSize ?? 20, 20));
   let timeScale = Math.max(0, finite(opts.timeScale ?? 0.1, 0.1));
@@ -103,7 +103,7 @@ export function buildBirthdayField(opts: BirthdayFieldOptions = {}) {
     transparent: true, depthWrite: false, blending: THREE.NormalBlending,
   });
   const mesh = new THREE.Points(geometry,material);
-  mesh.name = "BirthdayDeformationField";
+  mesh.name = "DeformationDeformationField";
   mesh.frustumCulled = false;
   return {
     mesh, uniforms,
