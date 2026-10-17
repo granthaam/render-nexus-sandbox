@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { buildPowersOfTen, STAGES, MIN_DIST, exponentAt } from "./powersOfTen";
+import { buildPowersOfTen, audioSweepAt, stageKeyIndex } from "@/layers/powersOfTen";
+import { PotBar } from "./PotBar";
 import { buildDeformationField } from "@/deformationField";
 import { Button } from "@/components/ui/button";
 
@@ -69,7 +70,12 @@ export default function Sandbox() {
   };
   const toggleMute = () => setMuted((m) => { const n = !m; const a = audio.current; if (a) a.master.gain.rampTo(n ? 0 : state.current.master, 0.3); return n; });
   const audio = useRef<any>(null);
-  const scaleRef = useRef<HTMLDivElement>(null);
+  const potRef = useRef<ReturnType<typeof buildPowersOfTen> | null>(null);
+  const enteredRef = useRef(false);
+  const mutedRef = useRef(false);
+  mutedRef.current = muted;
+  const [potView, setPotView] = useState({ index: 6, position01: 6 / 11, radius: 1e4 });
+  const jumpStage = (i: number) => { if (enteredRef.current) potRef.current?.jumpTo(i); };
 
   const set = (k: keyof S, v: number) => {
     state.current[k] = v;
@@ -94,6 +100,15 @@ export default function Sandbox() {
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.target instanceof HTMLElement && ev.target.closest("input, textarea, select, [contenteditable]")) return;
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      const stageIndex = stageKeyIndex(ev.key);
+      if (enteredRef.current && (stageIndex >= 0 || ev.key === "[" || ev.key === "]")) {
+        ev.preventDefault();
+        if (stageIndex >= 0) jumpStage(stageIndex);
+        else potRef.current?.controller.step(ev.key === "[" ? -1 : 1);
+        return;
+      }
+      if (ev.key.toLowerCase() === "n" && enteredRef.current && !ev.repeat) { toggleField(); return; }
       if (ev.key.toLowerCase() === "b" && !ev.repeat && !ev.ctrlKey && !ev.metaKey && !ev.altKey) { toggleField(ev.shiftKey); return; }
       const hit = ORDER.find((k) => ELEMENTS[k].key === ev.key.toUpperCase());
       if (hit) pickElement(hit);
@@ -118,7 +133,7 @@ export default function Sandbox() {
       VP.orientation = VP.h > VP.w ? "portrait" : "landscape";
     };
     readVP();
-    const camera = new THREE.PerspectiveCamera(55, VP.w / VP.h, 0.0005, 4000);
+    const camera = new THREE.PerspectiveCamera(55, VP.w / VP.h, 0.01, 1e6);
     // Fit the globe+frame (radius ~13) inside the narrower axis with a small margin
     const frameDist = () => {
       const R = 13, tanH = Math.tan((camera.fov * Math.PI) / 360);
@@ -128,7 +143,7 @@ export default function Sandbox() {
     camera.position.set(0, 4, frameDist());
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 2, alpha: true, powerPreference: "high-performance", failIfMajorPerformanceCaveat: false });
+      renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, logarithmicDepthBuffer: true, powerPreference: "high-performance", failIfMajorPerformanceCaveat: false });
     } catch (err) {
       console.warn("WebGL unavailable", err);
       setGlError(true);
@@ -150,8 +165,9 @@ export default function Sandbox() {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.target.set(0, 0, 0);
-    controls.maxDistance = 900;
-    controls.minDistance = MIN_DIST;
+    controls.enablePan = false;
+    controls.maxDistance = 150;
+    controls.minDistance = 4;
     controls.zoomSpeed = 1.6;
 
     const dotCanvas = document.createElement("canvas"); dotCanvas.width = dotCanvas.height = 64;
@@ -339,8 +355,13 @@ export default function Sandbox() {
     const micro = new THREE.Group();
     embryo.add(micro);
     micro.visible = false; // superseded by the Powers of Ten descent
-    const pot = buildPowersOfTen(dot);
-    scene.add(pot.group);
+    const pot = buildPowersOfTen({ camera, scene }, 6, { dot, renderRadius: 9, fit: frameDist() / (9 * 3.68) });
+    potRef.current = pot;
+    controls.update();
+    const onOrbitStart = () => {
+      pot.controller.adoptCamera();
+    };
+    controls.addEventListener("start", onOrbitStart);
     micro.add(makeDust(25000, 0.02, 1.2, 0.004, 1.2, 1.25, 0.05));
     micro.add(makeDust(15000, 0.002, 0.15, 0.0008, 12, 0.16, 0.005));
     // micro neural lattice inside the core
@@ -354,9 +375,17 @@ export default function Sandbox() {
     mGeo.setAttribute("position", new THREE.Float32BufferAttribute(mPos, 3));
     micro.add(new THREE.LineSegments(mGeo, new THREE.LineBasicMaterial({ color: 0xffccee, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })));
 
+    scene.traverse((object) => {
+      const material = object.material;
+      if (!(material instanceof THREE.ShaderMaterial)) return;
+      material.vertexShader = "#include <common>\n#include <logdepthbuf_pars_vertex>\n" + material.vertexShader.replace(/}\s*$/, "\n#include <logdepthbuf_vertex>\n}");
+      material.fragmentShader = "#include <logdepthbuf_pars_fragment>\n" + material.fragmentShader.replace(/void main\(\)\s*\{/, "void main(){\n#include <logdepthbuf_fragment>\n");
+      material.needsUpdate = true;
+    });
+
     const cA = new THREE.Color(), cB = new THREE.Color(), tmp = new THREE.Color();
     const clock = new THREE.Clock();
-    let t = 0, fieldElapsed = 0, raf = 0, lastBeat = 0;
+    let t = 0, fieldElapsed = 0, raf = 0, lastBeat = 0, uiAccum = 0, lastPotAudioPos = -1;
     // Perf auto-tuner: steps quality down on slow devices, slowly back up when smooth
     const TIERS = [
       { stride: 1, dpr: 2, skip: 1 }, { stride: 2, dpr: 1.5, skip: 1 },
@@ -382,7 +411,9 @@ export default function Sandbox() {
       tickPerf(performance.now());
       PERF.tick++;
       if (PERF.skip > 1 && PERF.tick % PERF.skip !== 0) return;
-      const st = state.current, dt = Math.min(clock.getDelta(), 0.1);
+      const st = state.current, dt = Math.min(clock.getDelta(), 0.05);
+      if (!pot.controller.transitioning) { controls.update(); pot.controller.adoptCamera(); }
+      pot.update(t, dt);
       fieldElapsed += dt * st.deformationSpeed;
       deformationField.setTimeScale(1);
       deformationField.update(fieldElapsed);
@@ -402,7 +433,9 @@ export default function Sandbox() {
       // element tint + wave physics fed to every inner structure
       cA.setHex(cur.wave); cB.setHex(nxt.wave); tmp.copy(cA).lerp(cB, st.psi);
       const camDist = camera.position.distanceTo(controls.target);
-      const uniFade = THREE.MathUtils.clamp((camDist - 8) / 20, 0, 1); // neural cosmos recedes as you descend
+      const uniFade = THREE.MathUtils.smoothstep(pot.controller.position, 7, 11);
+      embryo.visible = uniFade > .001;
+      beam.visible = uniFade > .001;
       deformationField.mesh.visible = fieldMode.current.visible && uniFade > 0.01;
       deformationField.uniforms.uOpacity.value = uniFade * 0.65;
       waveMats.forEach(({ mat, ampScale }) => {
@@ -449,18 +482,19 @@ export default function Sandbox() {
       somaMat.uniforms.psize.value = 0.05 + st.pulse * 0.04;
       cosmicDust.rotation.y = t * 0.005;
       micro.rotation.x = t * 0.1; micro.rotation.y = -t * 0.07;
-      // keep micro detail readable: scale point size with zoom distance
-      const pos = pot.update(camDist, t);
-      controls.zoomSpeed = 1.2;
-      if (scaleRef.current) {
-        const sg = STAGES[Math.round(pos)], ex = exponentAt(pos);
-        scaleRef.current.querySelector("[data-exp]").textContent = `10^${ex.toFixed(1)} m`;
-        scaleRef.current.querySelector("[data-name]").textContent = sg.name;
-        scaleRef.current.querySelector("[data-note]").textContent = sg.note;
-        scaleRef.current.querySelector("[data-bar]").style.width = `${(pos / (STAGES.length - 1)) * 100}%`;
+      uiAccum += dt;
+      if (uiAccum >= .1) {
+        uiAccum = 0;
+        if (enteredRef.current) setPotView({ index: pot.controller.index, position01: pot.controller.position01, radius: pot.controller.radius });
+        const a = audio.current, position = pot.controller.position01;
+        if (a && !mutedRef.current && Math.abs(position - lastPotAudioPos) > .03) {
+          lastPotAudioPos = position;
+          const sweep = audioSweepAt(position);
+          a.lp.frequency.rampTo(sweep.low, .8);
+          a.hp.frequency.rampTo(sweep.high, .8);
+        }
       }
 
-      controls.update();
       renderer.render(scene, camera);
     };
     // initial colors
@@ -477,7 +511,7 @@ export default function Sandbox() {
         if (VP.orientation !== lastOri) {
           lastOri = VP.orientation;
           const d = camera.position.distanceTo(controls.target);
-          if (d > 20) { const fit = frameDist(); camera.position.sub(controls.target).setLength(fit).add(controls.target); }
+          pot.controller.fit = frameDist() / (9 * 3.68);
         }
       }, 180);
     };
@@ -502,7 +536,10 @@ export default function Sandbox() {
       window.removeEventListener("touchstart", onTs);
       window.removeEventListener("touchend", onTe);
       window.removeEventListener("click", onClick, true);
+      controls.removeEventListener("start", onOrbitStart);
       controls.dispose();
+      pot.dispose();
+      potRef.current = null;
       deformationField.dispose();
       renderer.dispose();
       disposed = true;
@@ -515,6 +552,7 @@ export default function Sandbox() {
 
   const enter = async () => {
     if (entered || glError) return;
+    enteredRef.current = true;
     setEntered(true);
     try {
       const Tone = await import("tone");
@@ -535,7 +573,7 @@ export default function Sandbox() {
       const heart = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 2, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1 } }).connect(heartG);
       Tone.Transport.scheduleRepeat((time) => { try { heart.triggerAttackRelease("C1", "16n", time + 0.01); } catch {} }, "4n");
       Tone.Transport.start();
-      audio.current = { Tone, harm, master, drone: droneG, harmG, heartG, dispose: () => { drone.dispose(); harm.dispose(); heart.dispose(); } };
+      audio.current = { Tone, harm, master, lp, hp, drone: droneG, harmG, heartG, dispose: () => { drone.dispose(); harm.dispose(); heart.dispose(); } };
     } catch (e) { console.warn("audio unavailable", e); }
   };
 
@@ -561,13 +599,7 @@ export default function Sandbox() {
             <p className="text-sm text-muted-foreground">{cfg.tagline}</p>
           </header>
 
-          <div ref={scaleRef} className="sandbox-scale" aria-live="off">
-            <p className="sandbox-eyebrow">Powers of Ten · <span data-exp>10^7 m</span></p>
-            <p className="sandbox-section" data-name>The Whole Earth</p>
-            <p className="text-xs text-muted-foreground" data-note></p>
-            <div className="sandbox-scale-track"><div className="sandbox-scale-bar" data-bar /></div>
-            <p className="mt-1 text-[0.6rem] text-muted-foreground">Pinch / scroll into the globe to descend</p>
-          </div>
+          <PotBar value={potView} onStage={jumpStage} />
 
           <nav className="sandbox-elements">
             {ORDER.map((k) => (
