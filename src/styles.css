@@ -238,6 +238,7 @@ html, body { overscroll-behavior: none; }
 .pot-tick.near .pot-dot { background: var(--pot-end); }
 .pot-tick.active .pot-dot, .pot-tick:hover .pot-dot { background: var(--pot-highlight); box-shadow: 0 0 8px var(--pot-highlight); }
 .pot-tick.active .pot-label { color: var(--pot-highlight); }
+.pot-tick:hover, .pot-tick.active { background: var(--pot-track); color: var(--pot-highlight); }
 @media (max-width: 700px) { .pot-ticks { grid-template-columns: repeat(6, minmax(0, 1fr)); } .pot-label { font-size: 8px; } .glass-panel { bottom: calc(17rem + env(safe-area-inset-bottom)); max-height: 42vh; } }
 @media (max-height: 500px) and (orientation: landscape) { .pot-bar { width: min(880px, calc(100% - 1rem)); padding: .1rem .5rem; } .pot-ticks { grid-template-columns: repeat(12, minmax(0, 1fr)); } .pot-blurb { display: none; } .sandbox-hud { max-width: 26%; } }
 @media (prefers-reduced-motion: reduce) { #pot-fill, #pot-knob { transition: none; } }
