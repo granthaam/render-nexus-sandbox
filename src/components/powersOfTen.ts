@@ -3,25 +3,6 @@
 // ~1.9x smaller than the previous, so zooming toward the centre descends from Earth to quarks.
 import * as THREE from "three";
 
-export type Stage = { exp: number; name: string; note: string };
-export const STAGES: Stage[] = [
-  { exp: 7, name: "The Whole Earth", note: "Continents, oceans, the spherical globe" },
-  { exp: 5, name: "Continent & Region", note: "Weather systems, lakes, boundaries" },
-  { exp: 2, name: "Local Landscape", note: "City grids, forests, structures" },
-  { exp: 0, name: "One Meter", note: "Human scale — a picnic by the lake" },
-  { exp: -2, name: "One Centimeter", note: "The surface of the skin" },
-  { exp: -4, name: "Skin & Blood Vessels", note: "Epidermis, capillaries, red cells" },
-  { exp: -6, name: "The Cell", note: "Membrane, cytoplasm, nucleus" },
-  { exp: -8, name: "DNA", note: "The long twisted ladder" },
-  { exp: -9, name: "Molecules", note: "Atoms bonded into structure" },
-  { exp: -10, name: "Electron Cloud", note: "Orbitals of a carbon atom" },
-  { exp: -13, name: "The Nucleus", note: "Protons and neutrons packed tight" },
-  { exp: -15, name: "Quarks", note: "The limit of spatial scale" },
-];
-const R0 = 9, RATIO = 0.53, VIEW = 3.2;
-export const stageRadius = (i: number) => R0 * Math.pow(RATIO, i);
-export const MIN_DIST = stageRadius(STAGES.length - 1) * 1.1;
-
 const rnd = (a = 1) => (Math.random() * 2 - 1) * a;
 const hash = (x: number, y: number, z: number) => { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); };
 const vnoise = (x: number, y: number, z: number) => {
@@ -202,39 +183,9 @@ const builders: ((P: B, L: B) => void)[] = [
   },
 ];
 
-export function buildPowersOfTen(dot: THREE.Texture) {
-  const group = new THREE.Group();
-  const layers = STAGES.map((_, i) => {
-    const P = new B(), L = new B(); builders[i](P, L);
-    const r = stageRadius(i), g = new THREE.Group(); g.scale.setScalar(r);
-    const pm = new THREE.PointsMaterial({ size: r * 0.018, map: dot, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true });
-    const lm = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-    g.add(new THREE.Points(P.geo(), pm));
-    if (L.p.length) g.add(new THREE.LineSegments(L.geo(), lm));
-    // tilt flat layers so they read well from the default view
-    if ([1, 2, 3, 4, 5].includes(i)) g.rotation.x = 0.5;
-    group.add(g);
-    return { g, pm, lm, r };
-  });
-  const lnR = Math.log(1 / RATIO);
-
-  /** Fades layers by camera distance and returns the continuous stage position (0..N-1). */
-  const update = (dist: number, t: number) => {
-    layers.forEach((l, i) => {
-      const x = Math.log(dist / (l.r * VIEW)) / lnR;
-      const fin = THREE.MathUtils.smoothstep(-x, -2.6, -0.4); // appears as you approach
-      const fout = THREE.MathUtils.smoothstep(x, -1.9, -0.7); // dissolves once you pass through
-      const w = i === 0 ? fout : fin * fout;
-      l.g.visible = w > 0.01; l.pm.opacity = w; l.lm.opacity = w * 0.8;
-      l.g.rotation.y = t * (0.03 + i * 0.006);
-    });
-    return THREE.MathUtils.clamp(Math.log(R0 * VIEW / dist) / lnR, 0, STAGES.length - 1);
-  };
-  return { group, update };
-}
-
-/** Interpolated scale exponent in metres for a continuous stage position. */
-export function exponentAt(pos: number) {
-  const i = Math.floor(pos), f = pos - i, a = STAGES[i], b = STAGES[Math.min(i + 1, STAGES.length - 1)];
-  return a.exp + (b.exp - a.exp) * f;
+/** Existing scientific point illustrations, in a normalized unit-radius domain. */
+export function buildStageGeometry(index: number) {
+  const P = new B(), L = new B();
+  builders[index](P, L);
+  return { points: P.geo(), lines: L.geo(), flat: [1, 2, 3, 4, 5].includes(index) };
 }
