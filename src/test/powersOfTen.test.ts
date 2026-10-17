@@ -4,7 +4,7 @@ import { STAGES, stageRadius, clampStage, PowersOfTenController, positionAtRadiu
 const engine = () => ({ scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera(50, 1, .01, 1e6) });
 describe('physical Powers of Ten ladder', () => {
   const radii = [1e-18, 1e-15, 1e-10, 2e-9, 1e-5, 1, 1e4, 6.37e6, 6.96e8, 4.5e12, 4.7e20, 4.4e26];
-  radii.forEach((radius, i) => it(`uses the supplied radius for ${STAGES[i].label}`, () => expect(stageRadius(i)).toBe(radius)));
+  radii.forEach((radius, i) => it(`uses the supplied radius for ${STAGES[i]?.label}`, () => expect(stageRadius(i)).toBe(radius)));
   it('starts at CITY and seeds the camera before the first frame', () => {
     const e = engine(), c = new PowersOfTenController(e);
     expect(c.index).toBe(6); expect(e.camera.position.length()).toBeCloseTo(36800, 6);
@@ -36,7 +36,7 @@ describe('physical Powers of Ten ladder', () => {
   it('reserves the full number row for stage jumps', () => { '1234567890-='.split('').forEach((key, i) => expect(stageKeyIndex(key)).toBe(i)); expect(stageKeyIndex('b')).toBe(-1); });
   it('rebases render distance without discarding physical scale', () => {
     const e = engine(), c = new PowersOfTenController(e, 0, 9);
-    for (const i of [0,11]) { c.jumpTo(i, { instant: true }); expect(e.camera.position.length()).toBeCloseTo(33.12); expect(c.radius / radii[i]).toBeCloseTo(1, 10); }
+    for (const [i, radius] of [[0, 1e-18], [11, 4.4e26]] as const) { c.jumpTo(i, { instant: true }); expect(e.camera.position.length()).toBeCloseTo(33.12); expect(c.radius / radius).toBeCloseTo(1, 10); }
   });
   it('releases its scene layer', () => { const e = engine(), layer = buildPowersOfTen(e, 6, { renderRadius: 9 }); expect(e.scene.children).toContain(layer.object); layer.dispose(); expect(e.scene.children).not.toContain(layer.object); });
 });

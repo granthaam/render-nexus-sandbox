@@ -17,14 +17,16 @@ export const STAGES: Stage[] = [
   { id: 'cosmic', label: 'COSMIC WEB', radius: 4.4e26, blurb: '10²⁷ m — observable universe' },
 ];
 export const clampStage = (i: number) => Math.max(0, Math.min(11, Math.round(Number.isFinite(i) ? i : 6)));
-export const stageRadius = (i: number) => STAGES[clampStage(i)].radius;
+export const stageRadius = (i: number) => STAGES[clampStage(i)]?.radius ?? 1e4;
 export const stageKeyIndex = (key: string) => '1234567890-='.indexOf(key);
 const DIST_FACTOR = 3.2 * 1.15;
 const LOGS = STAGES.map(s => Math.log(s.radius));
 export function positionAtRadius(radius: number) {
   const log = Math.log(Math.max(1e-18, radius));
   for (let i = 0; i < LOGS.length - 1; i++) {
-    if (log <= LOGS[i + 1]) return Math.max(0, i + (log - LOGS[i]) / (LOGS[i + 1] - LOGS[i]));
+    const lower = LOGS[i], upper = LOGS[i + 1];
+    if (lower === undefined || upper === undefined) continue;
+    if (log <= upper) return Math.max(0, i + (log - lower) / (upper - lower));
   }
   return 11;
 }
@@ -62,7 +64,7 @@ export class PowersOfTenController {
     const offset = this.engine.camera.position.clone().sub(this.currentPoint);
     const ratio = offset.length() / this.renderDistance;
     if (Number.isFinite(ratio) && ratio > 0) {
-      this.currentLogDist = THREE.MathUtils.clamp(this.currentLogDist + Math.log(ratio), LOGS[0] + Math.log(DIST_FACTOR), LOGS[11] + Math.log(DIST_FACTOR));
+      this.currentLogDist = THREE.MathUtils.clamp(this.currentLogDist + Math.log(ratio), Math.log(1e-18 * DIST_FACTOR), Math.log(4.4e26 * DIST_FACTOR));
       this.targetLogDist = this.currentLogDist;
       this.index = clampStage(this.position);
       this.dir.copy(offset).normalize();
@@ -115,7 +117,8 @@ export function buildPowersOfTen(engine: Engine, startIndex = 6, options: { dot?
   const controller = new PowersOfTenController(engine, startIndex, options.renderRadius, options.fit);
   const mapping = [11, 10, 9, 7, 6, 3, 2, 0];
   const layers = STAGES.map((_, i) => {
-    const geo = i < 8 ? buildStageGeometry(mapping[i]) : cosmicGeometry(i);
+    const source = mapping[i];
+    const geo = source === undefined ? cosmicGeometry(i) : buildStageGeometry(source);
     const object = new THREE.Group();
     const pm = new THREE.PointsMaterial({ map: options.dot ?? null, size: .06, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     const lm = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });

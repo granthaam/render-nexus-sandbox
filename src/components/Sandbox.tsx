@@ -379,7 +379,7 @@ export default function Sandbox() {
     scene.traverse((object) => {
       const material = object.material;
       if (!(material instanceof THREE.ShaderMaterial)) return;
-      material.vertexShader = "#include <logdepthbuf_pars_vertex>\n" + material.vertexShader.replace(/}\s*$/, "\n#include <logdepthbuf_vertex>\n}");
+      material.vertexShader = "#include <common>\n#include <logdepthbuf_pars_vertex>\n" + material.vertexShader.replace(/}\s*$/, "\n#include <logdepthbuf_vertex>\n}");
       material.fragmentShader = "#include <logdepthbuf_pars_fragment>\n" + material.fragmentShader.replace(/void main\(\)\s*\{/, "void main(){\n#include <logdepthbuf_fragment>\n");
       material.needsUpdate = true;
     });
