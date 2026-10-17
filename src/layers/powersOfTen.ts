@@ -138,7 +138,7 @@ export function buildPowersOfTen(engine: Engine, startIndex = 6, options: { dot?
         // Bounded visual crossfade bridges enormous physical gaps without a blank frame.
         const radius = options.renderRadius ?? controller.radius;
         l.object.scale.setScalar(radius * Math.exp(THREE.MathUtils.clamp(i - pos, -.5, .5)) * .85);
-        l.pm.size = radius * .006; l.pm.opacity = weight; l.lm.opacity = weight * .8;
+        l.pm.size = radius * .025; l.pm.opacity = weight; l.lm.opacity = weight * .8;
         l.object.rotation.y = t * (.03 + i * .006);
       });
     },
