@@ -7,7 +7,7 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "5D Gestation — Elemental Sandbox" },
-      { name: "description", content: "An interactive 5D cosmic sandbox with five elemental pillars, a tesseract, a living wavepool and generative sound." },
+      { name: "description", content: "Explore a living neural universe from macroverse to microverse, with five elemental fields, Powers of Ten and generative sound." },
       { property: "og:title", content: "5D Gestation — Elemental Sandbox" },
       { property: "og:description", content: "Shift between Water, Earth, Plasma, Air and Fire inside a living 5D firmament." },
       { property: "og:type", content: "website" },
@@ -20,13 +20,14 @@ export const Route = createFileRoute("/")({
 function Index() {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
+  const loading = <div className="entry-loading" role="status"><h1 className="intro-title">5D GESTATION</h1><p className="text-sm text-muted-foreground">Opening the universe…</p></div>;
   return (
     <main className="sandbox-root">
-      {ready && (
-        <Suspense fallback={null}>
+      {ready ? (
+        <Suspense fallback={loading}>
           <Sandbox />
         </Suspense>
-      )}
+      ) : loading}
     </main>
   );
 }

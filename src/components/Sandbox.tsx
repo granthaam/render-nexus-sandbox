@@ -514,6 +514,7 @@ export default function Sandbox() {
   useEffect(() => () => { audio.current?.Tone.Transport.stop(); audio.current?.dispose(); }, []);
 
   const enter = async () => {
+    if (entered || glError) return;
     setEntered(true);
     try {
       const Tone = await import("tone");
@@ -548,7 +549,7 @@ export default function Sandbox() {
         <div className="intro-overlay z-[60]">
           <h2 className="sandbox-title mb-2">3D view paused</h2>
           <p className="mb-6 max-w-sm px-6 text-center text-sm text-muted-foreground">Your browser ran out of graphics memory. Close other tabs, then reload.</p>
-          <button onClick={() => window.location.reload()} className="enter-btn">RELOAD</button>
+          <Button onClick={() => window.location.reload()} className="enter-btn">Reload</Button>
         </div>
       )}
 
@@ -604,15 +605,13 @@ export default function Sandbox() {
         </>
       )}
 
-      <div className="intro-overlay" data-hidden={entered}>
-        <p className="sandbox-eyebrow mb-3">Elemental systems online</p>
-        <h1 className="rainbow-text mb-4 text-center text-5xl font-black tracking-tighter md:text-7xl">5D GESTATION</h1>
-        <p className="mb-8 max-w-lg px-6 text-center text-sm leading-relaxed text-muted-foreground">
-          Navigate the nested Tesseract, travel from the macroverse to the microverse inside the wave-driven globe, and shift between the five elemental pillars — Water, Earth, Plasma, Air and Fire.
-        </p>
-        <button onClick={enter} className="enter-btn">ENTER THE FIRMAMENT</button>
-        <p className="sandbox-eyebrow mt-6">Drag to rotate · Zoom from cosmos to microscopic · Sound on</p>
-      </div>
+      {!entered && !glError && (
+        <div className="intro-overlay">
+          <h1 className="intro-title">5D GESTATION</h1>
+          <p className="intro-subtitle">Macroverse to microverse</p>
+          <Button onClick={enter} className="enter-btn">Enter the universe <span aria-hidden="true">→</span></Button>
+        </div>
+      )}
     </div>
   );
 }
