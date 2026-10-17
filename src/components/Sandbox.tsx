@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { buildPowersOfTen, STAGES, MIN_DIST, exponentAt } from "./powersOfTen";
+import { buildBirthdayField } from "@/birthdayField";
+import { Button } from "@/components/ui/button";
 
 type ElementKey = "water" | "earth" | "plasma" | "air" | "fire";
 
@@ -18,10 +20,14 @@ export const ELEMENTS: Record<
 };
 export const ORDER: ElementKey[] = ["water", "earth", "plasma", "air", "fire"];
 
-const DEFAULTS = { timeSpeed: 1, tesseractSpeed: 1, hyperVib: 0, multiEcho: 1, waveAmp: 6, emanationHue: 200, beamIntensity: 1.5, psi: 0, bpm: 55, pitch5d: 0, density: 1, master: 0.8, droneVol: 0.7, harmVol: 0.5, heartVol: 0.8 };
+const DEFAULTS = { timeSpeed: 1, tesseractSpeed: 1, hyperVib: 0, multiEcho: 1, waveAmp: 6, emanationHue: 200, beamIntensity: 1.5, psi: 0, bpm: 55, pitch5d: 0, density: 1, master: 0.8, droneVol: 0.7, harmVol: 0.5, heartVol: 0.8, birthdayK: 1.13, birthdayIterations: 5, birthdaySpeed: 0.1 };
 type S = typeof DEFAULTS;
 
 const SLIDERS: { group: string; items: { k: keyof S; label: string; min: number; max: number; step: number; suffix?: string }[] }[] = [
+  { group: "Birthday Field", items: [
+    { k: "birthdayK", label: "Scaling k", min: 0, max: 3, step: 0.01 },
+    { k: "birthdayIterations", label: "Repeat Iterations", min: 1, max: 8, step: 1 },
+    { k: "birthdaySpeed", label: "Field Time Speed", min: 0, max: 1, step: 0.01 } ] },
   { group: "⧖ 4D Time", items: [
     { k: "timeSpeed", label: "Time Flow", min: 0, max: 5, step: 0.1, suffix: "x" },
     { k: "tesseractSpeed", label: "Tesseract Morph", min: 0, max: 5, step: 0.1 } ] },
@@ -55,6 +61,12 @@ export default function Sandbox() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [muted, setMuted] = useState(false);
   const [glError, setGlError] = useState(false);
+  const fieldMode = useRef({ visible: true, raw: false });
+  const [fieldUi, setFieldUi] = useState(fieldMode.current);
+  const toggleField = (raw = false) => {
+    fieldMode.current = raw ? { ...fieldMode.current, raw: !fieldMode.current.raw } : { ...fieldMode.current, visible: !fieldMode.current.visible };
+    setFieldUi(fieldMode.current);
+  };
   const toggleMute = () => setMuted((m) => { const n = !m; const a = audio.current; if (a) a.master.gain.rampTo(n ? 0 : state.current.master, 0.3); return n; });
   const audio = useRef<any>(null);
   const scaleRef = useRef<HTMLDivElement>(null);
@@ -81,6 +93,8 @@ export default function Sandbox() {
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
+      if (ev.target instanceof HTMLElement && ev.target.closest("input, textarea, select, [contenteditable]")) return;
+      if (ev.key.toLowerCase() === "b" && !ev.repeat && !ev.ctrlKey && !ev.metaKey && !ev.altKey) { toggleField(ev.shiftKey); return; }
       const hit = ORDER.find((k) => ELEMENTS[k].key === ev.key.toUpperCase());
       if (hit) pickElement(hit);
     };
@@ -89,7 +103,8 @@ export default function Sandbox() {
   }, []);
 
   useEffect(() => {
-    const el = mount.current!;
+    const el = mount.current;
+    if (!el) return;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
     // Mobile-first viewport: real visible size, device class, capped pixel ratio
@@ -146,6 +161,12 @@ export default function Sandbox() {
     const dot = new THREE.CanvasTexture(dotCanvas);
     const embryo = new THREE.Group();
     scene.add(embryo);
+    const palette = getComputedStyle(el);
+    const birthdayField = buildBirthdayField({
+      containmentRadius: 11.5,
+      colors: ["--birthday-core", "--birthday-caustic", "--birthday-outer"].map((token) => new THREE.Color(palette.getPropertyValue(token).trim())),
+    });
+    embryo.add(birthdayField.mesh);
     const N = 4000;
     const gGeo = new THREE.BufferGeometry();
     const pos = new Float32Array(N * 3), bPos = new Float32Array(N * 3), col = new Float32Array(N * 3), pick = new Float32Array(N);
@@ -335,7 +356,7 @@ export default function Sandbox() {
 
     const cA = new THREE.Color(), cB = new THREE.Color(), tmp = new THREE.Color();
     const clock = new THREE.Clock();
-    let t = 0, raf = 0, lastBeat = 0;
+    let t = 0, fieldElapsed = 0, raf = 0, lastBeat = 0;
     // Perf auto-tuner: steps quality down on slow devices, slowly back up when smooth
     const TIERS = [
       { stride: 1, dpr: 2, skip: 1 }, { stride: 2, dpr: 1.5, skip: 1 },
@@ -362,6 +383,13 @@ export default function Sandbox() {
       PERF.tick++;
       if (PERF.skip > 1 && PERF.tick % PERF.skip !== 0) return;
       const st = state.current, dt = Math.min(clock.getDelta(), 0.1);
+      fieldElapsed += dt * st.birthdaySpeed;
+      birthdayField.setTimeScale(1);
+      birthdayField.update(fieldElapsed);
+      birthdayField.setK(st.birthdayK);
+      birthdayField.setIterations(st.birthdayIterations);
+      birthdayField.uniforms.uUseUnnormalizedRInCos.value = fieldMode.current.raw ? 1 : 0;
+      birthdayField.uniforms.uViewportHeight.value = VP.h * renderer.getPixelRatio();
       t += dt * st.timeSpeed;
       const cur = ELEMENTS[st.element];
       const nxt = ELEMENTS[ORDER[(ORDER.indexOf(st.element) + 1) % ORDER.length]];
@@ -375,6 +403,8 @@ export default function Sandbox() {
       cA.setHex(cur.wave); cB.setHex(nxt.wave); tmp.copy(cA).lerp(cB, st.psi);
       const camDist = camera.position.distanceTo(controls.target);
       const uniFade = THREE.MathUtils.clamp((camDist - 8) / 20, 0, 1); // neural cosmos recedes as you descend
+      birthdayField.mesh.visible = fieldMode.current.visible && uniFade > 0.01;
+      birthdayField.uniforms.uOpacity.value = uniFade * 0.65;
       waveMats.forEach(({ mat, ampScale }) => {
         mat.uniforms.wt.value = t; mat.uniforms.wamp.value = st.waveAmp * ampScale;
         mat.uniforms.wtint.value.lerp(tmp, 0.05);
@@ -473,6 +503,7 @@ export default function Sandbox() {
       window.removeEventListener("touchend", onTe);
       window.removeEventListener("click", onClick, true);
       controls.dispose();
+      birthdayField.dispose();
       renderer.dispose();
       disposed = true;
       renderer.forceContextLoss(); // free the GPU context so remounts never exhaust the browser limit
@@ -554,6 +585,10 @@ export default function Sandbox() {
 
           <aside className="glass-panel" data-open={panelOpen}>
             <h3 className="sandbox-section mb-3 text-center">Master Controls</h3>
+            <div className="mb-3 flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" aria-pressed={fieldUi.visible} onClick={() => toggleField()}>{fieldUi.visible ? "◉" : "○"} Birthday Field</Button>
+              <Button variant="outline" size="sm" aria-pressed={fieldUi.raw} onClick={() => toggleField(true)}>{fieldUi.raw ? "Raw r" : "Normalized r̂"}</Button>
+            </div>
             {SLIDERS.map((g) => (
               <div key={g.group} className="mb-3 border-b border-border pb-2">
                 <h4 className="sandbox-section">{g.group}</h4>
